@@ -61,6 +61,7 @@ python -m app.main
 
 | 地址 | 说明 |
 |------|------|
+| `http://localhost:8000/` | 管理后台首页，支持对话测试和信息配置 |
 | `http://localhost:8000/docs` | Swagger API 文档（DEBUG=true 时） |
 | `http://localhost:8000/health` | 健康检查 |
 | `http://localhost:8000/health/detail` | 详细健康检查（含数据库） |
@@ -192,12 +193,53 @@ START → intent_identify_node → [条件路由]
 
 ### 7. 管理后台面板
 
-提供 5 个前端管理页面（`app/static/`）：
-- **LLM 模型管理**：模型的 CRUD、启禁用
-- **AI 工作流管理**：工作流定义与编辑
-- **会话节点管理**：节点增删改查、挂载模型
-- **提示词版本管理**：提示词暂存/发布/查看，版本链路溯源
-- **聊天测试页**：即时对话调试
+访问 `http://localhost:8000/` 进入管理后台，左侧导航栏提供 5 个功能模块（`app/static/`）：
+
+####   LLM 模型管理 (`llm_model_manager/`)
+- 大模型信息全生命周期管理（CRUD + 启禁用）
+- 配置项：模型名称、Provider、API Key、Base URL、上下文长度、价格（输入/输出）
+- 能力标签：是否支持流式/函数调用/视觉/联网搜索/JSON 模式
+- 模型分组：按 category、group、tags 归类
+- 所有模型配置存储在 `zb_llm_models` 表，60s 缓存热更新
+
+####   AI 工作流管理 (`ai_workflow_manager/`)
+- 工作流定义与编辑（CRUD + 启禁用）
+- 配置项：workflow_id、描述、入口节点 `entry_node_id`、意图分类节点 `intent_classify_node_id`
+- 支持"增强意图识别"开关（`enhance_intent_classify`）
+- 数据存储在 `zb_ai_workflow` 表
+
+####   会话节点管理 (`conversation_node_manager/`)
+- 智能体节点的增删改查
+- 配置项：node_id、节点名称、节点类型（Intent/Agent/Tool）、业务范围（`node_business_range`）、类路径（`node_func_path`）、父节点
+- 可为每个节点独立挂载 LLM 模型（`model_id` + `model_ext_param`）
+- 数据存储在 `zb_conversation_nodes` 表，操作后自动刷新缓存
+
+####   提示词版本管理 (`node_config_manager/`)
+
+一个完整的**提示词版本生命周期管理**系统：
+
+```
+                    save_draft
+暂存 (status=0)                暂存 (status=0, version+1)
+     │       ←              │
+     │  publish              │
+     ▼                      │
+发布 (status=1) ──────────────┘
+     │
+     └→ 同步 upsert 到 zb_node_prompt 生效表
+        旧发布记录降级为暂存 (status→0)
+        自动刷新 NodePromptCache 缓存
+```
+
+- **暂存/发布**：提示词可反复修改暂存，确认无误后一键发布
+- **版本链路**：发布后编辑自动新增子版本（`parent_id` 追溯），保留完整修改历史（`prompt_content_before_modify`）
+- **原子发布**：同一事务内完成"当前暂存→发布 + 旧发布→降级 + 同步生效表"，保证一致性
+- **提示词级模型覆盖**：每个 prompt 可指定独立的 model_id，运行时通过 `resolve_prompt_model()` 动态解析
+
+####   聊天测试页 (`chat.html`)
+- 即时对话调试，支持选择工作流、输入 conversation_id
+- 实时 SSE 流式输出，展示完整对话链路
+- 便于开发和测试阶段快速验证节点配置和提示词效果
 
 ### 8. RAG 知识库写作助手
 
