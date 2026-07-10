@@ -253,16 +253,118 @@ START → intent_identify_node → [条件路由]
 
 ## 技术栈
 
-| 层级 | 技术 | 说明 |
+### Web 框架
+
+| 技术 | 说明 |
+|------|------|
+| **FastAPI** | 现代异步 Web 框架，自动生成 OpenAPI 文档 |
+| **Uvicorn** | ASGI 服务器，`uvicorn.run("app.main:app")` |
+| **python-multipart** | Multipart 表单解析 |
+| **Starlette** | FastAPI 底层，提供 `StreamingResponse` / `StaticFiles` |
+
+### AI / LLM 框架（LangChain 生态）
+
+| 技术 | 说明 |
+|------|------|
+| **LangGraph** `>=1.1.6` | 状态图引擎，核心 Agent 编排，Build / Agent 两种模式 |
+| **LangChain** `>=1.2.13` | `create_agent` + middleware 模式 |
+| **langchain-core** `>=1.2.28` | 消息类型、工具抽象等核心能力 |
+| **langchain-openai** `>=1.1.12` | `ChatOpenAI` 统一接入多种 LLM Provider |
+| **langchain-community** `>=0.4.1` | 社区扩展 |
+| **langgraph-checkpoint-mysql** `>=3.0.0` | `AIOMySQLSaver` — MySQL 检查点持久化 |
+| **langchain-mcp-adapters** `==0.1.14` | MCP 协议适配器，集成外部工具 |
+| **fastmcp** `==2.14.1` | MCP 服务端框架 |
+
+**LangGraph 三种使用模式**：
+
+| 模式 | 文件 | 说明 |
 |------|------|------|
-| Web 框架 | FastAPI + Uvicorn | 异步 HTTP 服务 |
-| AI 编排 | LangChain + LangGraph | StateGraph + ReAct 循环 |
-| LLM 接入 | langchain-openai | 通过 OpenAI 兼容 API 统一调用 |
-| 数据库 | MySQL + aiomysql | 异步连接池，checkpoint 持久化 |
-| 配置 | pydantic-settings | `.env` 驱动 + Settings 代理模式 |
-| 日志 | Loguru | 结构化日志 |
-| 序列化 | ormsgpack | 高性能序列化 |
-| 文档解析 | pypdf/pdfplumber/python-docx/openpyxl | 多格式文件解析 |
+| 直接构建 StateGraph | `langgraph_agent.py` | `chatbot → tool_executor` ReAct 循环，支持 checkpointer、并发工具、interrupt HITL |
+| 多 Agent Builder | `langgraph_agent_builder.py` | 可复用 ReAct 子图，消息按 `agent_name` 私有隔离 |
+| create_agent + middleware | `abstract_tool.py` | LangChain 高层 API，通过中间件裁剪上下文 |
+
+### 数据库
+
+| 技术 | 说明 |
+|------|------|
+| **MySQL 8.0+** | 主数据存储 |
+| **SQLAlchemy** `>=2.0.23` | `AsyncSession` + `create_async_engine` 异步 ORM |
+| **aiomysql** `>=0.2.0` | MySQL 异步驱动 |
+| **PyMySQL** `>=1.1.3` | 同步驱动（配置管理用） |
+
+- 连接池配置：`pool_size=50`, `max_overflow=20`, `pool_recycle=3600`
+- 数据库操作采用原生 SQL（`sqlalchemy.text`），不使用 ORM 模型定义
+- 核心表：`zb_conversation_nodes`、`zb_conversation_messages`、`zb_ai_workflow`、`zb_llm_models`、`zb_node_prompt_ver_ctrl`、`zb_node_prompt`、`zb_conversation_business_state`
+
+### 配置管理
+
+| 技术 | 说明 |
+|------|------|
+| **pydantic** `>=2.12.4` | 数据验证与序列化 |
+| **pydantic-settings** `>=2.12.0` | `.env` 文件驱动的配置管理 |
+| **python-dotenv** `>=1.0.0` | `.env` 加载 |
+| **PyYAML** `>=6.0.1` | YAML 解析 |
+
+- `Settings(BaseSettings)` 单例 + 代理模式，多环境隔离
+- 60s 缓存热更新：模型/节点/提示词配置修改后自动刷新
+
+### 异步 HTTP 客户端
+
+| 技术 | 说明 |
+|------|------|
+| **httpx** `>=0.25.2` | 异步 HTTP 客户端（工具调用外部 API） |
+| **aiohttp** `>=3.13.3` | 另一个异步客户端（部分工具模块） |
+| **requests** `>=2.32.5` | 同步 HTTP 客户端 |
+
+### 日志
+
+| 技术 | 说明 |
+|------|------|
+| **Loguru** `>=0.7.2` | 结构化日志，`enqueue=True` 异步写入不阻塞事件循环 |
+
+- 日志格式：`logs/{MY_POD_IP}/app_{date}.log`
+- 500MB 自动轮转，旧日志 gzip 压缩
+- `ContextVar` 实现 Trace-ID 全链路追踪
+
+### 序列化
+
+| 技术 | 说明 |
+|------|------|
+| **ormsgpack** `>=1.12.0` | 高性能 MessagePack 序列化（LangGraph checkpoint 用） |
+
+### 文件解析
+
+| 技术 | 说明 |
+|------|------|
+| **pypdf** `>=6.0.0` | PDF 解析 |
+| **pdfplumber** `>=0.11.9` | PDF 解析（备选） |
+| **python-docx** `>=1.2.0` | Word 文档解析 |
+| **openpyxl** `>=3.1.5` | Excel 解析 |
+| **pandas** `>=2.3.3` | Excel / CSV 数据处理 |
+
+### 其他
+
+| 技术 | 说明 |
+|------|------|
+| **aiofiles** `>=23.2.1` | 异步文件 I/O |
+| **pytest** `>=7.4.3` + `pytest-asyncio` | 测试框架 |
+
+### 前端管理界面
+
+纯静态单页应用，无前端框架依赖：
+
+| 页面 | 路径 | 说明 |
+|------|------|------|
+| 管理后台主框架 | `/static/index.html` | 左侧导航 + iframe 嵌入子页 |
+| 聊天测试 | `/static/chat.html` | SSE 流式调试 |
+| LLM 模型管理 | `/static/llm_model_manager/` | 模型 CRUD |
+| AI 工作流管理 | `/static/ai_workflow_manager/` | 工作流定义 |
+| 会话节点管理 | `/static/conversation_node_manager/` | 节点配置 |
+| 提示词版本管理 | `/static/node_config_manager/` | 暂存/发布/版本追溯 |
+
+### 一句话总结
+
+> **FastAPI + LangGraph + SQLAlchemy/aiomysql + Loguru** 构建的 AI Agent 工作流框架，采用 ReAct 循环架构，支持多 Agent 协作、工具并发调用、HITL 中断、SSE 流式输出、MySQL 持久化、MCP 协议集成、pydantic-settings 热更新配置。
 
 ---
 
