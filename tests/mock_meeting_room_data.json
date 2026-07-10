@@ -1,0 +1,281 @@
+{
+  "query_result": {
+    "timePeriod": "2026-04-30 08:00:00 至 2026-06-16 20:00:00",
+    "rooms": [
+      {
+        "name": "汉口北22楼大会议室(20人)",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "汉口北22楼小会议室（8人）",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "汉口北23楼小会议室（8人）",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "5001精于勤（45人）",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "5101成于思（20人）",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "5102知者乐（8人）",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "光谷职场1号会议室（15人）",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "光谷职场2号会议室（6人）",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "光谷职场3号会议室（12人）",
+        "isBook": 0,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": []
+      },
+      {
+        "name": "5002知者动（8人）",
+        "isBook": 1,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "09:00:00"
+          },
+          {
+            "begintime": "10:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": [
+          {
+            "begintime": "09:00:00",
+            "endtime": "10:00:00",
+            "callerName": "张路路"
+          }
+        ]
+      },
+      {
+        "name": "5003仁者静（8人）",
+        "isBook": 1,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "09:00:00"
+          },
+          {
+            "begintime": "10:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": [
+          {
+            "begintime": "09:00:00",
+            "endtime": "10:00:00",
+            "callerName": "杨泽鑫"
+          }
+        ]
+      },
+      {
+        "name": "5103仁者寿（8人）",
+        "isBook": 1,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "15:00:00"
+          },
+          {
+            "begintime": "15:30:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": [
+          {
+            "begintime": "15:00:00",
+            "endtime": "15:30:00",
+            "callerName": "张路路"
+          }
+        ]
+      },
+      {
+        "name": "4901（12人）",
+        "isBook": 1,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "09:30:00"
+          },
+          {
+            "begintime": "10:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": [
+          {
+            "begintime": "09:30:00",
+            "endtime": "10:00:00",
+            "callerName": "张路路"
+          }
+        ]
+      },
+      {
+        "name": "4902（14人）",
+        "isBook": 1,
+        "availableTimePeriod": [
+          {
+            "begintime": "08:00:00",
+            "endtime": "09:00:00"
+          },
+          {
+            "begintime": "10:00:00",
+            "endtime": "15:00:00"
+          },
+          {
+            "begintime": "17:00:00",
+            "endtime": "20:00:00"
+          }
+        ],
+        "bookedTimePeriod": [
+          {
+            "begintime": "09:00:00",
+            "endtime": "10:00:00",
+            "callerName": "张路路"
+          },
+          {
+            "begintime": "15:00:00",
+            "endtime": "16:00:00",
+            "callerName": "张路路"
+          },
+          {
+            "begintime": "16:00:00",
+            "endtime": "17:00:00",
+            "callerName": "张路路"
+          }
+        ]
+      }
+    ]
+  },
+  "reserve_success": {
+    "code": "10000",
+    "msg": "预订成功",
+    "result": {
+      "meetingroom": "汉口北22楼大会议室(20人)",
+      "begintime": "2026-04-30 10:00:00",
+      "endtime": "2026-04-30 11:00:00",
+      "meetingtitle": "张三预订的会议室",
+      "username": "张三"
+    }
+  },
+  "reserve_fail_already_booked": {
+    "code": "10001",
+    "msg": "该时间段已被预订",
+    "result": null
+  },
+  "reserve_fail_invalid_room": {
+    "code": "10002",
+    "msg": "会议室不存在",
+    "result": null
+  },
+  "my_booked_rooms": [
+    {
+      "name": "5002知者动（8人）",
+      "begintime": "2026-05-18 09:00:00",
+      "endtime": "2026-05-18 10:00:00",
+      "callerName": "张三"
+    },
+    {
+      "name": "5101成于思（20人）",
+      "begintime": "2026-05-19 14:00:00",
+      "endtime": "2026-05-19 15:00:00",
+      "callerName": "张三"
+    },
+    {
+      "name": "汉口北22楼小会议室（8人）",
+      "begintime": "2026-05-20 10:00:00",
+      "endtime": "2026-05-20 11:00:00",
+      "callerName": "张三"
+    }
+  ],
+  "cancel_success": {
+    "code": "10000",
+    "msg": "取消预订成功",
+    "result": {
+      "meetingroom": "5002知者动（8人）",
+      "begintime": "2026-05-18 09:00:00",
+      "endtime": "2026-05-18 10:00:00",
+      "username": "张三"
+    }
+  },
+  "cancel_fail_not_found": {
+    "code": "10003",
+    "msg": "未找到该预订记录",
+    "result": null
+  }
+}

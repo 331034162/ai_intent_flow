@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会话节点信息管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #333; }
+        .topbar { height: 56px; background: #2c3142; color: #fff; display: flex; align-items: center; padding: 0 24px; gap: 16px; }
+        .topbar .title { font-size: 16px; font-weight: 600; }
+        .topbar a.back { color: #9fb3d1; text-decoration: none; font-size: 13px; margin-left: auto; }
+        .topbar a.back:hover { color: #fff; }
+        .container { padding: 20px 28px; }
+        .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .toolbar input, .toolbar select { padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+        .toolbar input:focus, .toolbar select:focus { border-color: #3b82f6; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background .15s; }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-default { background: #fff; border: 1px solid #d9d9d9; color: #555; }
+        .btn-default:hover { border-color: #3b82f6; color: #3b82f6; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06); font-size: 13px; }
+        th, td { border: 1px solid #eef0f3; padding: 10px 12px; text-align: left; vertical-align: top; }
+        th { background: #f8f9fb; color: #444; font-weight: 600; white-space: nowrap; }
+        tr:hover td { background: #fafbfc; }
+        .tag-on { color: #16a34a; font-weight: 500; }
+        .tag-off { color: #dc2626; font-weight: 500; }
+        .empty, .loading { text-align: center; padding: 50px; color: #999; }
+        .pager { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; color: #666; font-size: 13px; }
+        .pager .pager-info { margin-right: auto; }
+        .pager select { padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+        .pager select:focus { border-color: #3b82f6; }
+        .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-start; justify-content: center; z-index: 100; overflow-y: auto; padding: 40px 0; }
+        .modal-mask.show { display: flex; }
+        .modal { width: 560px; max-width: 92vw; background: #fff; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.15); }
+        .modal-header { padding: 18px 24px; border-bottom: 1px solid #f0f0f0; font-size: 16px; font-weight: 600; }
+        .modal-body { padding: 20px 24px; max-height: 60vh; overflow-y: auto; }
+        .modal-footer { padding: 14px 24px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 10px; }
+        .form-row { display: flex; gap: 16px; margin-bottom: 14px; }
+        .form-row .field { flex: 1; }
+        .field label { display: block; font-size: 12px; color: #666; margin-bottom: 6px; }
+        .field label .req { color: #ef4444; margin-left: 2px; }
+        .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; font-family: inherit; }
+        .field input:focus, .field select:focus, .field textarea:focus { border-color: #3b82f6; }
+        .field textarea { resize: vertical; min-height: 60px; }
+        .field input[readonly] { background: #f5f5f5; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="title">会话节点信息管理</span>
+        <a class="back" href="javascript:void(0)" onclick="if(parent&&parent.switchPage)parent.switchPage('chat')">← 返回主页</a>
+    </div>
+    <div class="container">
+        <div class="toolbar">
+            <input id="fKeyword" placeholder="搜索 node_id / node_name" style="width:240px">
+            <select id="fType">
+                <option value="">全部类型</option>
+                <option value="intent">intent</option>
+                <option value="agent">agent</option>
+                <option value="tool">tool</option>
+            </select>
+            <button class="btn btn-default" onclick="loadList(1)">查询</button>
+            <button class="btn btn-primary" onclick="openForm()">+ 新增节点</button>
+        </div>
+        <div id="listArea"><div class="loading">加载中...</div></div>
+    </div>
+
+    <div class="modal-mask" id="modalMask" onclick="if(event.target===this)closeForm()">
+        <div class="modal">
+            <div class="modal-header" id="modalTitle">新增节点</div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="field">
+                        <label>节点ID<span class="req">*</span></label>
+                        <input id="m_node_id" placeholder="如 intent_classification">
+                    </div>
+                    <div class="field">
+                        <label>节点名称<span class="req">*</span></label>
+                        <input id="m_node_name" placeholder="如 意图识别">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>节点类型<span class="req">*</span></label>
+                        <select id="m_node_type">
+                            <option value="intent">intent</option>
+                            <option value="agent">agent</option>
+                            <option value="tool">tool</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>业务范围<span class="req">*</span></label>
+                        <input id="m_node_business_range" placeholder="如 办公类业务">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>父节点ID</label>
+                        <input id="m_parent_node_id" placeholder="可选">
+                    </div>
+                    <div class="field">
+                        <label>关联模型ID</label>
+                        <input id="m_model_id" placeholder="引用 zb_llm_models.model_id">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>功能实现路径</label>
+                        <input id="m_node_func_path" placeholder="如 app.tool.xxx">
+                    </div>
+                    <div class="field">
+                        <label>状态</label>
+                        <select id="m_status">
+                            <option value="1">启用</option>
+                            <option value="0">禁用</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>节点描述</label>
+                    <textarea id="m_node_description" placeholder="节点功能描述"></textarea>
+                </div>
+                <div class="field" style="margin-top:14px">
+                    <label>模型扩展参数 (JSON)</label>
+                    <textarea id="m_model_ext_param" placeholder='如 {"temperature":0.7}'></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" onclick="closeForm()">取消</button>
+                <button class="btn btn-primary" onclick="submitForm()">保存</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    let g_editId = null;
+    let g_page = 1;
+    let g_pageSize = 10;
+    let g_total = 0;
+
+    function escapeHtml(t){ return (t==null?'':String(t)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+    async function loadList(page) {
+        if (page) g_page = page;
+        const area = document.getElementById('listArea');
+        area.innerHTML = '<div class="loading">加载中...</div>';
+        try {
+            const kw = document.getElementById('fKeyword').value.trim();
+            const type = document.getElementById('fType').value;
+            const qs = new URLSearchParams();
+            if (kw) qs.set('keyword', kw);
+            if (type) qs.set('node_type', type);
+            qs.set('page', g_page);
+            qs.set('page_size', g_pageSize);
+            const res = await fetch('/api/conversation-nodes?' + qs.toString());
+            const json = await res.json();
+            if (json.code !== 0) { area.innerHTML = '<div class="empty">加载失败：' + escapeHtml(json.message) + '</div>'; return; }
+            const rows = json.data || [];
+            g_total = json.total || 0;
+            if (rows.length === 0) { area.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+            let html = `<table><thead><tr>
+                <th>节点ID</th><th>节点名称</th><th>类型</th><th>业务范围</th>
+                <th>父节点</th><th>模型ID</th><th>状态</th><th>描述</th><th>操作</th>
+            </tr></thead><tbody>${rows.map(r => `
+                <tr>
+                    <td>${escapeHtml(r.node_id)}</td>
+                    <td>${escapeHtml(r.node_name)}</td>
+                    <td>${escapeHtml(r.node_type)}</td>
+                    <td>${escapeHtml(r.node_business_range||'-')}</td>
+                    <td>${escapeHtml(r.parent_node_id||'-')}</td>
+                    <td>${escapeHtml(r.model_id||'-')}</td>
+                    <td class="${r.status===1?'tag-on':'tag-off'}">${r.status===1?'启用':'禁用'}</td>
+                    <td>${escapeHtml((r.node_description||'').slice(0,40)||'-')}</td>
+                    <td>
+                        <button class="btn btn-default btn-sm" onclick="openForm('${escapeHtml(r.node_id)}')">编辑</button>
+                        <button class="btn btn-danger btn-sm" onclick="removeItem('${escapeHtml(r.node_id)}')">删除</button>
+                    </td>
+                </tr>`).join('')}</tbody></table>`;
+            html += renderPager();
+            area.innerHTML = html;
+        } catch (e) { area.innerHTML = '<div class="empty">加载失败：' + escapeHtml(String(e)) + '</div>'; }
+    }
+
+    function renderPager() {
+        const totalPages = Math.max(1, Math.ceil(g_total / g_pageSize));
+        const cur = Math.min(g_page, totalPages);
+        return `<div class="pager">
+            <span class="pager-info">共 ${g_total} 条，第 ${cur} / ${totalPages} 页</span>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(1)">首页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${cur-1})">上一页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${cur+1})">下一页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${totalPages})">末页</button>
+            <select onchange="changePageSize(parseInt(this.value,10))">
+                <option value="10" ${g_pageSize===10?'selected':''}>10条/页</option>
+                <option value="20" ${g_pageSize===20?'selected':''}>20条/页</option>
+                <option value="30" ${g_pageSize===30?'selected':''}>30条/页</option>
+                <option value="40" ${g_pageSize===40?'selected':''}>40条/页</option>
+                <option value="50" ${g_pageSize===50?'selected':''}>50条/页</option>
+                <option value="100" ${g_pageSize===100?'selected':''}>100条/页</option>
+            </select>
+        </div>`;
+    }
+
+    function gotoPage(p) {
+        const totalPages = Math.max(1, Math.ceil(g_total / g_pageSize));
+        p = Math.max(1, Math.min(p, totalPages));
+        loadList(p);
+    }
+
+    function changePageSize(v) {
+        g_pageSize = v; g_page = 1; loadList(1);
+    }
+
+    function openForm(nodeId) {
+        g_editId = nodeId || null;
+        document.getElementById('modalTitle').textContent = nodeId ? '编辑节点' : '新增节点';
+        const ids = ['node_id','node_name','node_type','node_business_range','parent_node_id','model_id','node_func_path','status','node_description','model_ext_param'];
+        ids.forEach(id => document.getElementById('m_'+id).value = '');
+        document.getElementById('m_status').value = '1';
+        if (nodeId) {
+            fetch('/api/conversation-nodes/' + encodeURIComponent(nodeId))
+                .then(r => r.json()).then(j => {
+                    if (j.code !== 0 || !j.data) { alert('加载失败：' + (j.message||'')); return; }
+                    const d = j.data;
+                    document.getElementById('m_node_id').value = d.node_id;
+                    document.getElementById('m_node_id').setAttribute('readonly', 'readonly');
+                    document.getElementById('m_node_name').value = d.node_name || '';
+                    document.getElementById('m_node_type').value = d.node_type || 'intent';
+                    document.getElementById('m_node_business_range').value = d.node_business_range || '';
+                    document.getElementById('m_parent_node_id').value = d.parent_node_id || '';
+                    document.getElementById('m_model_id').value = d.model_id || '';
+                    document.getElementById('m_node_func_path').value = d.node_func_path || '';
+                    document.getElementById('m_status').value = String(d.status==null?1:d.status);
+                    document.getElementById('m_node_description').value = d.node_description || '';
+                    document.getElementById('m_model_ext_param').value = d.model_ext_param ? (typeof d.model_ext_param==='string'?d.model_ext_param:JSON.stringify(d.model_ext_param)) : '';
+                });
+        } else {
+            document.getElementById('m_node_id').removeAttribute('readonly');
+        }
+        document.getElementById('modalMask').classList.add('show');
+    }
+
+    function closeForm() { document.getElementById('modalMask').classList.remove('show'); }
+
+    async function submitForm() {
+        const node_id = document.getElementById('m_node_id').value.trim();
+        const node_name = document.getElementById('m_node_name').value.trim();
+        const node_type = document.getElementById('m_node_type').value;
+        const node_business_range = document.getElementById('m_node_business_range').value.trim();
+        if (!node_id || !node_name || !node_type || !node_business_range) { alert('请填写必填项（节点ID/名称/类型/业务范围）'); return; }
+        let model_ext_param = document.getElementById('m_model_ext_param').value.trim();
+        if (model_ext_param) {
+            try { JSON.parse(model_ext_param); } catch(e) { alert('模型扩展参数不是合法 JSON'); return; }
+        }
+        const payload = {
+            node_id, node_name, node_type, node_business_range,
+            parent_node_id: document.getElementById('m_parent_node_id').value.trim() || null,
+            model_id: document.getElementById('m_model_id').value.trim() || null,
+            node_func_path: document.getElementById('m_node_func_path').value.trim() || null,
+            status: parseInt(document.getElementById('m_status').value, 10),
+            node_description: document.getElementById('m_node_description').value.trim() || null,
+            model_ext_param: model_ext_param || null
+        };
+        const url = g_editId ? ('/api/conversation-nodes/' + encodeURIComponent(g_editId)) : '/api/conversation-nodes';
+        const method = g_editId ? 'PUT' : 'POST';
+        try {
+            const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const json = await res.json();
+            if (json.code !== 0) { alert('保存失败：' + json.message); return; }
+            closeForm(); loadList();
+        } catch (e) { alert('保存失败：' + e); }
+    }
+
+    async function removeItem(nodeId) {
+        if (!confirm('确认删除节点 ' + nodeId + ' ？')) return;
+        try {
+            const res = await fetch('/api/conversation-nodes/' + encodeURIComponent(nodeId), { method: 'DELETE' });
+            const json = await res.json();
+            if (json.code !== 0) { alert('删除失败：' + json.message); return; }
+            loadList();
+        } catch (e) { alert('删除失败：' + e); }
+    }
+
+    loadList();
+</script>
+</body>
+</html>

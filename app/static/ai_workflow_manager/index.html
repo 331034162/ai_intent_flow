@@ -1,0 +1,259 @@
+fen'y<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI工作流管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #333; }
+        .topbar { height: 56px; background: #2c3142; color: #fff; display: flex; align-items: center; padding: 0 24px; gap: 16px; }
+        .topbar .title { font-size: 16px; font-weight: 600; }
+        .topbar a.back { color: #9fb3d1; text-decoration: none; font-size: 13px; margin-left: auto; }
+        .topbar a.back:hover { color: #fff; }
+        .container { padding: 20px 28px; }
+        .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .toolbar input { padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+        .toolbar input:focus { border-color: #3b82f6; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background .15s; }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-default { background: #fff; border: 1px solid #d9d9d9; color: #555; }
+        .btn-default:hover { border-color: #3b82f6; color: #3b82f6; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06); font-size: 13px; }
+        th, td { border: 1px solid #eef0f3; padding: 10px 12px; text-align: left; vertical-align: top; }
+        th { background: #f8f9fb; color: #444; font-weight: 600; white-space: nowrap; }
+        tr:hover td { background: #fafbfc; }
+        .tag-on { color: #16a34a; font-weight: 500; }
+        .tag-off { color: #dc2626; font-weight: 500; }
+        .empty, .loading { text-align: center; padding: 50px; color: #999; }
+        .pager { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; color: #666; font-size: 13px; }
+        .pager .pager-info { margin-right: auto; }
+        .pager select { padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+        .pager select:focus { border-color: #3b82f6; }
+        .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-start; justify-content: center; z-index: 100; overflow-y: auto; padding: 40px 0; }
+        .modal-mask.show { display: flex; }
+        .modal { width: 560px; max-width: 92vw; background: #fff; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.15); }
+        .modal-header { padding: 18px 24px; border-bottom: 1px solid #f0f0f0; font-size: 16px; font-weight: 600; }
+        .modal-body { padding: 20px 24px; max-height: 60vh; overflow-y: auto; }
+        .modal-footer { padding: 14px 24px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 10px; }
+        .form-row { display: flex; gap: 16px; margin-bottom: 14px; }
+        .form-row .field { flex: 1; }
+        .field label { display: block; font-size: 12px; color: #666; margin-bottom: 6px; }
+        .field label .req { color: #ef4444; margin-left: 2px; }
+        .field input, .field select { width: 100%; padding: 8px 10px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; font-family: inherit; }
+        .field input:focus, .field select:focus { border-color: #3b82f6; }
+        .field input[readonly] { background: #f5f5f5; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="title">AI工作流管理</span>
+        <a class="back" href="javascript:void(0)" onclick="if(parent&&parent.switchPage)parent.switchPage('chat')">← 返回主页</a>
+    </div>
+    <div class="container">
+        <div class="toolbar">
+            <input id="fKeyword" placeholder="搜索 workflow_id / workflow_desc" style="width:260px">
+            <button class="btn btn-default" onclick="loadList(1)">查询</button>
+            <button class="btn btn-primary" onclick="openForm()">+ 新增工作流</button>
+        </div>
+        <div id="listArea"><div class="loading">加载中...</div></div>
+    </div>
+
+    <div class="modal-mask" id="modalMask" onclick="if(event.target===this)closeForm()">
+        <div class="modal">
+            <div class="modal-header" id="modalTitle">新增工作流</div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="field">
+                        <label>工作流ID<span class="req">*</span></label>
+                        <input id="m_workflow_id" placeholder="如 xiaobang_all">
+                    </div>
+                    <div class="field">
+                        <label>工作流描述</label>
+                        <input id="m_workflow_desc" placeholder="如 小智办公助手">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>入口节点ID<span class="req">*</span></label>
+                        <input id="m_entry_node_id" placeholder="如 intent_classification">
+                    </div>
+                    <div class="field">
+                        <label>应用ID<span class="req">*</span></label>
+                        <input id="m_app_id" placeholder="如 app_bangong">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>意图识别节点ID</label>
+                        <input id="m_intent_classify_node_id" placeholder="默认同入口节点">
+                    </div>
+                    <div class="field">
+                        <label>状态</label>
+                        <select id="m_status">
+                            <option value="1">可用</option>
+                            <option value="0">不可用</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>增强意图识别</label>
+                        <select id="m_enhance_intent_classify">
+                            <option value="1">开启</option>
+                            <option value="0">不开启</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" onclick="closeForm()">取消</button>
+                <button class="btn btn-primary" onclick="submitForm()">保存</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    let g_editId = null;
+    let g_page = 1;
+    let g_pageSize = 10;
+    let g_total = 0;
+    function escapeHtml(t){ return (t==null?'':String(t)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+    async function loadList(page) {
+        if (page) g_page = page;
+        const area = document.getElementById('listArea');
+        area.innerHTML = '<div class="loading">加载中...</div>';
+        try {
+            const kw = document.getElementById('fKeyword').value.trim();
+            const qs = new URLSearchParams();
+            if (kw) qs.set('keyword', kw);
+            qs.set('page', g_page);
+            qs.set('page_size', g_pageSize);
+            const res = await fetch('/api/ai-workflows?' + qs.toString());
+            const json = await res.json();
+            if (json.code !== 0) { area.innerHTML = '<div class="empty">加载失败：' + escapeHtml(json.message) + '</div>'; return; }
+            const rows = json.data || [];
+            g_total = json.total || 0;
+            if (rows.length === 0) { area.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+            let html = `<table><thead><tr>
+                <th>工作流ID</th><th>描述</th><th>入口节点</th><th>应用ID</th>
+                <th>意图节点</th><th>状态</th><th>增强识别</th><th>操作</th>
+            </tr></thead><tbody>${rows.map(r => `
+                <tr>
+                    <td>${escapeHtml(r.workflow_id)}</td>
+                    <td>${escapeHtml(r.workflow_desc||'-')}</td>
+                    <td>${escapeHtml(r.entry_node_id)}</td>
+                    <td>${escapeHtml(r.app_id)}</td>
+                    <td>${escapeHtml(r.intent_classify_node_id||'-')}</td>
+                    <td class="${r.status===1?'tag-on':'tag-off'}">${r.status===1?'可用':'不可用'}</td>
+                    <td>${r.enhance_intent_classify===1?'开启':'关闭'}</td>
+                    <td>
+                        <button class="btn btn-default btn-sm" onclick="openForm('${escapeHtml(r.workflow_id)}')">编辑</button>
+                        <button class="btn btn-danger btn-sm" onclick="removeItem('${escapeHtml(r.workflow_id)}')">删除</button>
+                    </td>
+                </tr>`).join('')}</tbody></table>`;
+            html += renderPager();
+            area.innerHTML = html;
+        } catch (e) { area.innerHTML = '<div class="empty">加载失败：' + escapeHtml(String(e)) + '</div>'; }
+    }
+
+    function renderPager() {
+        const totalPages = Math.max(1, Math.ceil(g_total / g_pageSize));
+        const cur = Math.min(g_page, totalPages);
+        return `<div class="pager">
+            <span class="pager-info">共 ${g_total} 条，第 ${cur} / ${totalPages} 页</span>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(1)">首页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${cur-1})">上一页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${cur+1})">下一页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${totalPages})">末页</button>
+            <select onchange="changePageSize(parseInt(this.value,10))">
+                <option value="10" ${g_pageSize===10?'selected':''}>10条/页</option>
+                <option value="20" ${g_pageSize===20?'selected':''}>20条/页</option>
+                <option value="30" ${g_pageSize===30?'selected':''}>30条/页</option>
+                <option value="40" ${g_pageSize===40?'selected':''}>40条/页</option>
+                <option value="50" ${g_pageSize===50?'selected':''}>50条/页</option>
+                <option value="100" ${g_pageSize===100?'selected':''}>100条/页</option>
+            </select>
+        </div>`;
+    }
+
+    function gotoPage(p) {
+        const totalPages = Math.max(1, Math.ceil(g_total / g_pageSize));
+        p = Math.max(1, Math.min(p, totalPages));
+        loadList(p);
+    }
+
+    function changePageSize(v) {
+        g_pageSize = v; g_page = 1; loadList(1);
+    }
+
+    function openForm(workflowId) {
+        g_editId = workflowId || null;
+        document.getElementById('modalTitle').textContent = workflowId ? '编辑工作流' : '新增工作流';
+        ['workflow_id','workflow_desc','entry_node_id','app_id','intent_classify_node_id','status','enhance_intent_classify']
+            .forEach(id => document.getElementById('m_'+id).value = '');
+        document.getElementById('m_status').value = '1';
+        document.getElementById('m_enhance_intent_classify').value = '1';
+        if (workflowId) {
+            fetch('/api/ai-workflows/' + encodeURIComponent(workflowId))
+                .then(r => r.json()).then(j => {
+                    if (j.code !== 0 || !j.data) { alert('加载失败：' + (j.message||'')); return; }
+                    const d = j.data;
+                    document.getElementById('m_workflow_id').value = d.workflow_id;
+                    document.getElementById('m_workflow_id').setAttribute('readonly','readonly');
+                    document.getElementById('m_workflow_desc').value = d.workflow_desc || '';
+                    document.getElementById('m_entry_node_id').value = d.entry_node_id || '';
+                    document.getElementById('m_app_id').value = d.app_id || '';
+                    document.getElementById('m_intent_classify_node_id').value = d.intent_classify_node_id || '';
+                    document.getElementById('m_status').value = String(d.status==null?1:d.status);
+                    document.getElementById('m_enhance_intent_classify').value = String(d.enhance_intent_classify==null?1:d.enhance_intent_classify);
+                });
+        } else {
+            document.getElementById('m_workflow_id').removeAttribute('readonly');
+        }
+        document.getElementById('modalMask').classList.add('show');
+    }
+
+    function closeForm() { document.getElementById('modalMask').classList.remove('show'); }
+
+    async function submitForm() {
+        const workflow_id = document.getElementById('m_workflow_id').value.trim();
+        const entry_node_id = document.getElementById('m_entry_node_id').value.trim();
+        const app_id = document.getElementById('m_app_id').value.trim();
+        if (!workflow_id || !entry_node_id || !app_id) { alert('请填写必填项（工作流ID/入口节点/应用ID）'); return; }
+        const payload = {
+            workflow_id, entry_node_id, app_id,
+            workflow_desc: document.getElementById('m_workflow_desc').value.trim() || null,
+            intent_classify_node_id: document.getElementById('m_intent_classify_node_id').value.trim() || null,
+            status: parseInt(document.getElementById('m_status').value, 10),
+            enhance_intent_classify: parseInt(document.getElementById('m_enhance_intent_classify').value, 10)
+        };
+        const url = g_editId ? ('/api/ai-workflows/' + encodeURIComponent(g_editId)) : '/api/ai-workflows';
+        const method = g_editId ? 'PUT' : 'POST';
+        try {
+            const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const json = await res.json();
+            if (json.code !== 0) { alert('保存失败：' + json.message); return; }
+            closeForm(); loadList();
+        } catch (e) { alert('保存失败：' + e); }
+    }
+
+    async function removeItem(workflowId) {
+        if (!confirm('确认删除工作流 ' + workflowId + ' ？')) return;
+        try {
+            const res = await fetch('/api/ai-workflows/' + encodeURIComponent(workflowId), { method: 'DELETE' });
+            const json = await res.json();
+            if (json.code !== 0) { alert('删除失败：' + json.message); return; }
+            loadList();
+        } catch (e) { alert('删除失败：' + e); }
+    }
+
+    loadList();
+</script>
+</body>
+</html>

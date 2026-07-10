@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大模型信息管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #333; }
+        .topbar { height: 56px; background: #2c3142; color: #fff; display: flex; align-items: center; padding: 0 24px; gap: 16px; }
+        .topbar .title { font-size: 16px; font-weight: 600; }
+        .topbar a.back { color: #9fb3d1; text-decoration: none; font-size: 13px; margin-left: auto; }
+        .topbar a.back:hover { color: #fff; }
+        .container { padding: 20px 28px; }
+        .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .toolbar input, .toolbar select { padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+        .toolbar input:focus, .toolbar select:focus { border-color: #3b82f6; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background .15s; }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-default { background: #fff; border: 1px solid #d9d9d9; color: #555; }
+        .btn-default:hover { border-color: #3b82f6; color: #3b82f6; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06); font-size: 13px; }
+        th, td { border: 1px solid #eef0f3; padding: 10px 12px; text-align: left; vertical-align: top; }
+        th { background: #f8f9fb; color: #444; font-weight: 600; white-space: nowrap; }
+        tr:hover td { background: #fafbfc; }
+        .tag-on { color: #16a34a; font-weight: 500; }
+        .tag-off { color: #dc2626; font-weight: 500; }
+        .empty, .loading { text-align: center; padding: 50px; color: #999; }
+        .pager { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; color: #666; font-size: 13px; }
+        .pager .pager-info { margin-right: auto; }
+        .pager select { padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+        .pager select:focus { border-color: #3b82f6; }
+        .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-start; justify-content: center; z-index: 100; overflow-y: auto; padding: 40px 0; }
+        .modal-mask.show { display: flex; }
+        .modal { width: 640px; max-width: 94vw; background: #fff; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.15); }
+        .modal-header { padding: 18px 24px; border-bottom: 1px solid #f0f0f0; font-size: 16px; font-weight: 600; }
+        .modal-body { padding: 20px 24px; max-height: 64vh; overflow-y: auto; }
+        .modal-footer { padding: 14px 24px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 10px; }
+        .form-row { display: flex; gap: 16px; margin-bottom: 14px; }
+        .form-row .field { flex: 1; }
+        .field label { display: block; font-size: 12px; color: #666; margin-bottom: 6px; }
+        .field label .req { color: #ef4444; margin-left: 2px; }
+        .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; font-family: inherit; }
+        .field input:focus, .field select:focus, .field textarea:focus { border-color: #3b82f6; }
+        .field textarea { resize: vertical; min-height: 54px; }
+        .field input[readonly] { background: #f5f5f5; color: #888; }
+        .section-title { font-size: 13px; color: #888; font-weight: 600; margin: 6px 0 12px; border-left: 3px solid #3b82f6; padding-left: 8px; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="title">大模型信息管理</span>
+        <a class="back" href="javascript:void(0)" onclick="if(parent&&parent.switchPage)parent.switchPage('chat')">← 返回主页</a>
+    </div>
+    <div class="container">
+        <div class="toolbar">
+            <input id="fKeyword" placeholder="搜索 model_id / model_name" style="width:240px">
+            <select id="fProvider"><option value="">全部供应商</option></select>
+            <button class="btn btn-default" onclick="loadList(1)">查询</button>
+            <button class="btn btn-primary" onclick="openForm()">+ 新增模型</button>
+        </div>
+        <div id="listArea"><div class="loading">加载中...</div></div>
+    </div>
+
+    <div class="modal-mask" id="modalMask" onclick="if(event.target===this)closeForm()">
+        <div class="modal">
+            <div class="modal-header" id="modalTitle">新增模型</div>
+            <div class="modal-body">
+                <div class="section-title">基础信息</div>
+                <div class="form-row">
+                    <div class="field"><label>模型ID<span class="req">*</span></label><input id="m_model_id" placeholder="如 zb-qwen-plus"></div>
+                    <div class="field"><label>模型名称<span class="req">*</span></label><input id="m_model_name" placeholder="如 Qwen Plus"></div>
+                </div>
+                <div class="form-row">
+                    <div class="field"><label>Provider<span class="req">*</span></label><input id="m_provider" placeholder="如 zbank / openai"></div>
+                    <div class="field"><label>API模型名<span class="req">*</span></label><input id="m_api_model_name" placeholder="如 qwen-plus"></div>
+                </div>
+                <div class="form-row">
+                    <div class="field"><label>Base URL<span class="req">*</span></label><input id="m_base_url" placeholder="https://..."></div>
+                    <div class="field"><label>API Key<span class="req">*</span></label><input id="m_api_key" placeholder="sk-..."></div>
+                </div>
+                <div class="field"><label>描述</label><textarea id="m_description"></textarea></div>
+                <div class="section-title" style="margin-top:18px">能力 / 计费</div>
+                <div class="form-row">
+                    <div class="field"><label>上下文长度</label><input id="m_context_length" type="number" value="4096"></div>
+                    <div class="field"><label>输入单价(元/千tok)</label><input id="m_input_price" type="number" step="0.000001" value="0"></div>
+                    <div class="field"><label>输出单价(元/千tok)</label><input id="m_output_price" type="number" step="0.000001" value="0"></div>
+                </div>
+                <div class="form-row">
+                    <div class="field"><label>币种</label><input id="m_currency" value="CNY"></div>
+                    <div class="field"><label>分类</label><input id="m_model_category" placeholder="如 general/coding"></div>
+                    <div class="field"><label>分组</label><input id="m_model_group" placeholder="如 qwen"></div>
+                </div>
+                <div class="form-row">
+                    <div class="field"><label>状态</label><select id="m_is_enabled"><option value="1">启用</option><option value="0">禁用</option></select></div>
+                    <div class="field"><label>生产可用</label><select id="m_is_production_ready"><option value="0">否</option><option value="1">是</option></select></div>
+                    <div class="field"><label>流式输出</label><select id="m_supports_streaming"><option value="1">是</option><option value="0">否</option></select></div>
+                </div>
+                <div class="form-row">
+                    <div class="field"><label>函数调用</label><select id="m_supports_function_calling"><option value="0">否</option><option value="1">是</option></select></div>
+                    <div class="field"><label>视觉</label><select id="m_supports_vision"><option value="0">否</option><option value="1">是</option></select></div>
+                    <div class="field"><label>联网搜索</label><select id="m_supports_search"><option value="0">否</option><option value="1">是</option></select></div>
+                    <div class="field"><label>JSON模式</label><select id="m_supports_json_mode"><option value="0">否</option><option value="1">是</option></select></div>
+                </div>
+                <div class="section-title" style="margin-top:18px">JSON 扩展配置</div>
+                <div class="form-row">
+                    <div class="field"><label>tags (JSON数组)</label><textarea id="m_tags" placeholder='["fast","cheap"]'></textarea></div>
+                    <div class="field"><label>api_parameters (JSON)</label><textarea id="m_api_parameters" placeholder='{"temperature":0.7}'></textarea></div>
+                </div>
+                <div class="field"><label>custom_config (JSON)</label><textarea id="m_custom_config" placeholder='{}'></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" onclick="closeForm()">取消</button>
+                <button class="btn btn-primary" onclick="submitForm()">保存</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    let g_editId = null;
+    let g_page = 1;
+    let g_pageSize = 10;
+    let g_total = 0;
+    function escapeHtml(t){ return (t==null?'':String(t)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+    function checkJson(id, name) {
+        const v = document.getElementById(id).value.trim();
+        if (v) { try { JSON.parse(v); } catch(e) { alert(name + '不是合法 JSON'); return false; } }
+        return true;
+    }
+
+    async function loadProviders() {
+        try {
+            const res = await fetch('/api/llm-models?page_size=1000');
+            const json = await res.json();
+            const sel = document.getElementById('fProvider');
+            const set = new Set();
+            (json.data||[]).forEach(m => { if (m.provider) set.add(m.provider); });
+            set.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; sel.appendChild(o); });
+        } catch(e) {}
+    }
+
+    async function loadList(page) {
+        if (page) g_page = page;
+        const area = document.getElementById('listArea');
+        area.innerHTML = '<div class="loading">加载中...</div>';
+        try {
+            const kw = document.getElementById('fKeyword').value.trim();
+            const provider = document.getElementById('fProvider').value;
+            const qs = new URLSearchParams();
+            if (kw) qs.set('keyword', kw);
+            if (provider) qs.set('provider', provider);
+            qs.set('page', g_page);
+            qs.set('page_size', g_pageSize);
+            const res = await fetch('/api/llm-models?' + qs.toString());
+            const json = await res.json();
+            if (json.code !== 0) { area.innerHTML = '<div class="empty">加载失败：' + escapeHtml(json.message) + '</div>'; return; }
+            const rows = json.data || [];
+            g_total = json.total || 0;
+            if (rows.length === 0) { area.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+            let html = `<table><thead><tr>
+                <th>模型ID</th><th>名称</th><th>Provider</th><th>API模型</th>
+                <th>上下文</th><th>流式</th><th>函数</th><th>视觉</th><th>状态</th><th>生产</th><th>操作</th>
+            </tr></thead><tbody>${rows.map(r => `
+                <tr>
+                    <td>${escapeHtml(r.model_id)}</td>
+                    <td>${escapeHtml(r.model_name)}</td>
+                    <td>${escapeHtml(r.provider)}</td>
+                    <td>${escapeHtml(r.api_model_name)}</td>
+                    <td>${r.context_length||'-'}</td>
+                    <td>${r.supports_streaming?'✓':'-'} </td>
+                    <td>${r.supports_function_calling?'✓':'-'} </td>
+                    <td>${r.supports_vision?'✓':'-'} </td>
+                    <td class="${r.is_enabled===1?'tag-on':'tag-off'}">${r.is_enabled===1?'启用':'禁用'}</td>
+                    <td>${r.is_production_ready===1?'✓':'-'} </td>
+                    <td>
+                        <button class="btn btn-default btn-sm" onclick="openForm('${escapeHtml(r.model_id)}')">编辑</button>
+                        <button class="btn btn-danger btn-sm" onclick="removeItem('${escapeHtml(r.model_id)}')">删除</button>
+                    </td>
+                </tr>`).join('')}</tbody></table>`;
+            html += renderPager();
+            area.innerHTML = html;
+        } catch (e) { area.innerHTML = '<div class="empty">加载失败：' + escapeHtml(String(e)) + '</div>'; }
+    }
+
+    function renderPager() {
+        const totalPages = Math.max(1, Math.ceil(g_total / g_pageSize));
+        const cur = Math.min(g_page, totalPages);
+        return `<div class="pager">
+            <span class="pager-info">共 ${g_total} 条，第 ${cur} / ${totalPages} 页</span>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(1)">首页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${cur-1})">上一页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${cur+1})">下一页</button>
+            <button class="btn btn-default btn-sm" onclick="gotoPage(${totalPages})">末页</button>
+            <select onchange="changePageSize(parseInt(this.value,10))">
+                <option value="10" ${g_pageSize===10?'selected':''}>10条/页</option>
+                <option value="20" ${g_pageSize===20?'selected':''}>20条/页</option>
+                <option value="30" ${g_pageSize===30?'selected':''}>30条/页</option>
+                <option value="40" ${g_pageSize===40?'selected':''}>40条/页</option>
+                <option value="50" ${g_pageSize===50?'selected':''}>50条/页</option>
+                <option value="100" ${g_pageSize===100?'selected':''}>100条/页</option>
+            </select>
+        </div>`;
+    }
+
+    function gotoPage(p) {
+        const totalPages = Math.max(1, Math.ceil(g_total / g_pageSize));
+        p = Math.max(1, Math.min(p, totalPages));
+        loadList(p);
+    }
+
+    function changePageSize(v) {
+        g_pageSize = v; g_page = 1; loadList(1);
+    }
+
+    function openForm(modelId) {
+        g_editId = modelId || null;
+        document.getElementById('modalTitle').textContent = modelId ? '编辑模型' : '新增模型';
+        const ids = ['model_id','model_name','provider','api_model_name','base_url','api_key','description',
+            'context_length','input_price','output_price','currency','model_category','model_group',
+            'is_enabled','is_production_ready','supports_streaming','supports_function_calling','supports_vision',
+            'supports_search','supports_json_mode','tags','api_parameters','custom_config'];
+        ids.forEach(id => { const el = document.getElementById('m_'+id); if (el) el.value = ''; });
+        document.getElementById('m_context_length').value = '4096';
+        document.getElementById('m_input_price').value = '0';
+        document.getElementById('m_output_price').value = '0';
+        document.getElementById('m_currency').value = 'CNY';
+        document.getElementById('m_is_enabled').value = '1';
+        document.getElementById('m_is_production_ready').value = '0';
+        document.getElementById('m_supports_streaming').value = '1';
+        document.getElementById('m_supports_function_calling').value = '0';
+        document.getElementById('m_supports_vision').value = '0';
+        document.getElementById('m_supports_search').value = '0';
+        document.getElementById('m_supports_json_mode').value = '0';
+        if (modelId) {
+            fetch('/api/llm-models/' + encodeURIComponent(modelId))
+                .then(r => r.json()).then(j => {
+                    if (j.code !== 0 || !j.data) { alert('加载失败：' + (j.message||'')); return; }
+                    const d = j.data;
+                    document.getElementById('m_model_id').value = d.model_id;
+                    document.getElementById('m_model_id').setAttribute('readonly','readonly');
+                    document.getElementById('m_model_name').value = d.model_name || '';
+                    document.getElementById('m_provider').value = d.provider || '';
+                    document.getElementById('m_api_model_name').value = d.api_model_name || '';
+                    document.getElementById('m_base_url').value = d.base_url || '';
+                    document.getElementById('m_api_key').value = d.api_key || '';
+                    document.getElementById('m_description').value = d.description || '';
+                    document.getElementById('m_context_length').value = d.context_length!=null?d.context_length:4096;
+                    document.getElementById('m_input_price').value = d.input_price!=null?d.input_price:0;
+                    document.getElementById('m_output_price').value = d.output_price!=null?d.output_price:0;
+                    document.getElementById('m_currency').value = d.currency || 'CNY';
+                    document.getElementById('m_model_category').value = d.model_category || '';
+                    document.getElementById('m_model_group').value = d.model_group || '';
+                    document.getElementById('m_is_enabled').value = String(d.is_enabled==null?1:d.is_enabled);
+                    document.getElementById('m_is_production_ready').value = String(d.is_production_ready==null?0:d.is_production_ready);
+                    document.getElementById('m_supports_streaming').value = String(d.supports_streaming==null?1:d.supports_streaming);
+                    document.getElementById('m_supports_function_calling').value = String(d.supports_function_calling==null?0:d.supports_function_calling);
+                    document.getElementById('m_supports_vision').value = String(d.supports_vision==null?0:d.supports_vision);
+                    document.getElementById('m_supports_search').value = String(d.supports_search==null?0:d.supports_search);
+                    document.getElementById('m_supports_json_mode').value = String(d.supports_json_mode==null?0:d.supports_json_mode);
+                    document.getElementById('m_tags').value = d.tags ? (typeof d.tags==='string'?d.tags:JSON.stringify(d.tags)) : '';
+                    document.getElementById('m_api_parameters').value = d.api_parameters ? (typeof d.api_parameters==='string'?d.api_parameters:JSON.stringify(d.api_parameters)) : '';
+                    document.getElementById('m_custom_config').value = d.custom_config ? (typeof d.custom_config==='string'?d.custom_config:JSON.stringify(d.custom_config)) : '';
+                });
+        } else {
+            document.getElementById('m_model_id').removeAttribute('readonly');
+        }
+        document.getElementById('modalMask').classList.add('show');
+    }
+
+    function closeForm() { document.getElementById('modalMask').classList.remove('show'); }
+
+    async function submitForm() {
+        const model_id = document.getElementById('m_model_id').value.trim();
+        const model_name = document.getElementById('m_model_name').value.trim();
+        const provider = document.getElementById('m_provider').value.trim();
+        const api_model_name = document.getElementById('m_api_model_name').value.trim();
+        const base_url = document.getElementById('m_base_url').value.trim();
+        const api_key = document.getElementById('m_api_key').value.trim();
+        if (!model_id || !model_name || !provider || !api_model_name || !base_url || !api_key) {
+            alert('请填写必填项（模型ID/名称/Provider/API模型名/BaseURL/APIKey）'); return;
+        }
+        if (!checkJson('m_tags','tags')) return;
+        if (!checkJson('m_api_parameters','api_parameters')) return;
+        if (!checkJson('m_custom_config','custom_config')) return;
+        const payload = {
+            model_id, model_name, provider, api_model_name, base_url, api_key,
+            description: document.getElementById('m_description').value.trim() || null,
+            context_length: parseInt(document.getElementById('m_context_length').value||'4096', 10),
+            input_price: parseFloat(document.getElementById('m_input_price').value||'0'),
+            output_price: parseFloat(document.getElementById('m_output_price').value||'0'),
+            currency: document.getElementById('m_currency').value.trim() || 'CNY',
+            model_category: document.getElementById('m_model_category').value.trim() || null,
+            model_group: document.getElementById('m_model_group').value.trim() || null,
+            is_enabled: parseInt(document.getElementById('m_is_enabled').value,10)===1,
+            is_production_ready: parseInt(document.getElementById('m_is_production_ready').value,10)===1,
+            supports_streaming: parseInt(document.getElementById('m_supports_streaming').value,10)===1,
+            supports_function_calling: parseInt(document.getElementById('m_supports_function_calling').value,10)===1,
+            supports_vision: parseInt(document.getElementById('m_supports_vision').value,10)===1,
+            supports_search: parseInt(document.getElementById('m_supports_search').value,10)===1,
+            supports_json_mode: parseInt(document.getElementById('m_supports_json_mode').value,10)===1,
+            tags: document.getElementById('m_tags').value.trim() || null,
+            api_parameters: document.getElementById('m_api_parameters').value.trim() || null,
+            custom_config: document.getElementById('m_custom_config').value.trim() || null
+        };
+        const url = g_editId ? ('/api/llm-models/' + encodeURIComponent(g_editId)) : '/api/llm-models';
+        const method = g_editId ? 'PUT' : 'POST';
+        try {
+            const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const json = await res.json();
+            if (json.code !== 0) { alert('保存失败：' + json.message); return; }
+            closeForm(); loadList(); loadProviders();
+        } catch (e) { alert('保存失败：' + e); }
+    }
+
+    async function removeItem(modelId) {
+        if (!confirm('确认删除模型 ' + modelId + ' ？')) return;
+        try {
+            const res = await fetch('/api/llm-models/' + encodeURIComponent(modelId), { method: 'DELETE' });
+            const json = await res.json();
+            if (json.code !== 0) { alert('删除失败：' + json.message); return; }
+            loadList(); loadProviders();
+        } catch (e) { alert('删除失败：' + e); }
+    }
+
+    loadProviders();
+    loadList();
+</script>
+</body>
+</html>

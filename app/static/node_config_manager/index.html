@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>意图节点提示词配置</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #333; }
+
+        .topbar { height: 56px; background: #2c3142; color: #fff; display: flex; align-items: center; padding: 0 24px; gap: 16px; position: sticky; top: 0; z-index: 100; }
+        .topbar .title { font-size: 16px; font-weight: 600; }
+        .topbar a.back { color: #9fb3d1; text-decoration: none; font-size: 13px; margin-left: auto; cursor: pointer; }
+        .topbar a.back:hover { color: #fff; }
+
+        .container { padding: 20px 24px; }
+
+        /* 搜索栏 */
+        .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .filter-item { display: flex; align-items: center; gap: 6px; }
+        .filter-item label { font-size: 13px; color: #666; white-space: nowrap; }
+        .toolbar input[type="text"], .toolbar select {
+            height: 36px; border: 1px solid #d9d9d9; border-radius: 6px;
+            padding: 0 12px; font-size: 13px; outline: none; transition: border-color .2s; background: #fff;
+        }
+        .toolbar input[type="text"] { width: 180px; }
+        .toolbar input:focus, .toolbar select:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.1); }
+        .toolbar .btn { height: 36px; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+               height: 34px; padding: 0 14px; border: 1px solid transparent; border-radius: 6px;
+               font-size: 13px; cursor: pointer; white-space: nowrap; transition: all .15s; outline: none; }
+        .btn-default { background: #fff; border-color: #d9d9d9; color: #333; }
+        .btn-default:hover { border-color: #3b82f6; color: #3b82f6; }
+        .btn-primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-success { background: #52c41a; border-color: #52c41a; color: #fff; }
+        .btn-success:hover { background: #3f9e13; }
+        .btn-danger { background: #fff; border-color: #ff4d4f; color: #ff4d4f; }
+        .btn-danger:hover { background: #ff4d4f; color: #fff; }
+        .btn-link { background: transparent; border: none; color: #3b82f6; cursor: pointer; font-size: 13px; text-decoration: none; padding: 0 4px; }
+        .btn-link:hover { text-decoration: underline; }
+        .btn-link.danger { color: #ff4d4f; }
+        .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+
+        /* 表格容器（横向可滚动） */
+        .table-wrap { overflow-x: auto; background: #fff; border-radius: 8px; border: 1px solid #e8e8e8; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #fafafa; color: #666; font-weight: 600; white-space: nowrap; padding: 12px 14px; border-bottom: 1px solid #eee; text-align: left; }
+        td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; word-break: break-all; }
+        tr:hover td { background: #fafafa; }
+
+        /* 树形展开 */
+        .tree-toggle { display: inline-flex; align-items: center; justify-content: center;
+                       width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
+                       font-size: 14px; color: #999; transition: all .15s; user-select: none; }
+        .tree-toggle:hover { background: #e8e8e8; color: #333; }
+        .leaf-dot { display: inline-block; width: 22px; height: 22px; text-align: center; line-height: 22px; color: #ccc; }
+
+        .child-row { background: #fff; }
+        .child-row td { padding: 10px 14px; }
+        .child-row td:first-child { padding-left: 32px; }
+        .child-row:hover td { background: #fafafa; }
+
+        .parent-row td { background: #fafafa; font-weight: 500; }
+        .parent-row td:first-child { padding-left: 10px; }
+
+        .status-on { color: #52c41a; }
+        .status-off { color: #999; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+        .tag-on { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .tag-off { background: #f5f5f5; color: #999; border: 1px solid #d9d9d9; }
+        .text-muted { color: #999; font-size: 12px; }
+        .ellipsis { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+        .ver-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; background: #eef2ff; color: #3b82f6; font-size: 12px; font-weight: 600; }
+
+        .empty, .loading { text-align: center; padding: 60px 20px; color: #999; font-size: 14px; }
+
+        /* 分页 */
+        .pager { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; color: #666; font-size: 13px; }
+        .pager .pager-info { margin-right: auto; }
+        .pager select { padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+        .pager select:focus { border-color: #3b82f6; }
+
+        /* 弹窗 */
+        .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-mask.show { display: flex; }
+        .modal { width: 1100px; max-width: 96vw; max-height: 95vh; overflow: auto; background: #fff; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,.2); }
+        .modal-head { display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid #eee; }
+        .modal-head .mt { font-size: 15px; font-weight: 600; }
+        .modal-head .x { margin-left: auto; cursor: pointer; color: #999; font-size: 20px; line-height: 1; }
+        .modal-head .x:hover { color: #333; }
+        .modal-body { padding: 18px 20px; }
+        .form-row { margin-bottom: 14px; }
+        .form-row label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; }
+        .form-row label .req { color: #ff4d4f; }
+        .form-row input[type="text"], .form-row textarea, .form-row select {
+            width: 100%; border: 1px solid #d9d9d9; border-radius: 6px; padding: 8px 10px; font-size: 13px;
+            outline: none; transition: border-color .2s; font-family: inherit; line-height: 1.5;
+        }
+        .form-row input[type="text"] { height: 38px; }
+        .form-row input[readonly] { background: #f5f5f5; color: #666; }
+        .form-row select { background: #fff; height: 38px; }
+        .form-row input:focus, .form-row textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.1); }
+        .form-row textarea { min-height: 220px; resize: vertical; line-height: 1.6; }
+        .form-hint { font-size: 12px; color: #999; margin-top: 4px; }
+        .form-row-inline { display: flex; gap: 16px; margin-bottom: 14px; }
+        .form-row-inline .form-row { flex: 1; margin-bottom: 0; }
+        .form-row-split { display: flex; gap: 16px; margin-bottom: 14px; align-items: stretch; }
+        .form-row-split .split-left,
+        .form-row-split .split-right { flex: 1; min-width: 0; margin-bottom: 0; }
+        .form-row-split .rte-wrap { height: 480px; display: flex; flex-direction: column; }
+        .form-row-split .rte-editor { flex: 1; overflow-y: auto; min-height: 0; }
+        .modal-foot { display: flex; align-items: center; gap: 10px; justify-content: flex-end; padding: 14px 20px; border-top: 1px solid #eee; }
+        .modal-foot .spacer { margin-right: auto; font-size: 12px; color: #999; }
+
+        /* 富文本编辑器 */
+        .rte-wrap { border: 1px solid #d9d9d9; border-radius: 6px; overflow: hidden; transition: border-color .2s; }
+        .rte-wrap:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.1); }
+        .rte-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px 8px; background: #fafafa; border-bottom: 1px solid #ececec; }
+        .rte-btn { min-width: 30px; height: 28px; padding: 0 8px; border: 1px solid transparent; background: transparent; border-radius: 4px; cursor: pointer; font-size: 13px; color: #555; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+        .rte-btn:hover { background: #eaf3ff; color: #3b82f6; border-color: #d6e8ff; }
+        .rte-btn:active { background: #d6e8ff; }
+        .rte-sep { width: 1px; background: #e0e0e0; margin: 3px 4px; }
+        .rte-var-input { height: 26px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 8px; font-size: 12px; width: 120px; outline: none; }
+        .rte-var-input:focus { border-color: #3b82f6; }
+        .rte-editor { min-height: 220px; max-height: 460px; overflow-y: auto; padding: 12px 14px; font-size: 14px; line-height: 1.7; outline: none; white-space: pre-wrap; word-break: break-word; }
+        .rte-editor:empty:before { content: attr(data-placeholder); color: #bbb; pointer-events: none; }
+        .rte-editor[contenteditable="false"] { cursor: not-allowed; }
+        .rte-editor h1 { font-size: 1.4em; margin: .4em 0; }
+        .rte-editor h2 { font-size: 1.2em; margin: .4em 0; }
+        .rte-editor ul, .rte-editor ol { margin: .3em 0 .3em 22px; }
+        .rte-editor b, .rte-editor strong { font-weight: 700; }
+
+        /* 提示词内容 hover 浮层 */
+        .content-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; position: relative; }
+        .content-popover { display: none; position: fixed; z-index: 2000; max-width: 640px; max-height: 420px; overflow-y: auto; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.18); padding: 14px 16px; font-size: 13px; line-height: 1.7; word-break: break-word; white-space: pre-wrap; }
+        .content-popover h1 { font-size: 1.3em; margin: .3em 0; }
+        .content-popover h2 { font-size: 1.15em; margin: .3em 0; }
+        .content-popover ul, .content-popover ol { margin: .2em 0 .2em 20px; }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <span class="title">意图节点提示词配置</span>
+    <a class="back" href="javascript:void(0)" onclick="if(parent&&parent.switchPage)parent.switchPage('chat')">← 返回主页</a>
+</div>
+
+<div class="container">
+    <!-- 搜索栏 -->
+    <div class="toolbar">
+        <div class="filter-item">
+            <label>节点ID</label>
+            <input type="text" id="fNodeId" placeholder="请输入节点ID" onkeydown="if(event.key==='Enter')loadList(1)">
+        </div>
+        <div class="filter-item">
+            <label>节点名称</label>
+            <input type="text" id="fNodeName" placeholder="模糊查询" onkeydown="if(event.key==='Enter')loadList(1)">
+        </div>
+        <div class="filter-item">
+            <label>提示词Key</label>
+            <input type="text" id="fPromptKey" placeholder="请输入提示词Key" onkeydown="if(event.key==='Enter')loadList(1)">
+        </div>
+        <div class="filter-item">
+            <label>状态</label>
+            <select id="fStatus" onchange="loadList(1)">
+                <option value="">全部</option>
+                <option value="1">发布</option>
+                <option value="0">暂存</option>
+            </select>
+        </div>
+        <button class="btn btn-primary" onclick="loadList(1)">查询</button>
+        <button class="btn btn-default" onclick="resetFilters()">重置</button>
+        <button class="btn btn-default" onclick="alert('权限配置功能开发中')">权限配置</button>
+        <button class="btn btn-primary" onclick="openTopNewPrompt()">新增</button>
+    </div>
+
+    <!-- 列表区 -->
+    <div id="listArea"><div class="loading">加载中...</div></div>
+</div>
+
+<!-- 提示词编辑/查看弹窗 -->
+<div class="modal-mask" id="promptModal">
+    <div class="modal">
+        <div class="modal-head">
+            <span class="mt" id="pmTitle">提示词</span>
+            <span class="x" onclick="closePromptModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="pmMode">
+            <input type="hidden" id="pmRecordId">
+            <input type="hidden" id="pmStatus">
+            <div class="form-row" id="pmNodeSelectRow" style="display:none">
+                <label>选择节点 <span class="req">*</span></label>
+                <select id="pmNodeSelect" onchange="onNodeSelectChange()">
+                    <option value="">请选择节点</option>
+                </select>
+            </div>
+            <div class="form-row-inline">
+                <div class="form-row"><label>节点ID</label><input type="text" id="pmNodeId" readonly></div>
+                <div class="form-row"><label>节点名称</label><input type="text" id="pmNodeName" readonly></div>
+                <div class="form-row"><label>提示词Key <span class="req">*</span></label><input type="text" id="pmPromptKey" placeholder="如 system_prompt / intent_classify 等"></div>
+            </div>
+            <div class="form-row-inline">
+                <div class="form-row"><label>模型ID</label><input type="text" id="pmModelId" placeholder="引用 zb_llm_models 的模型ID，留空则使用节点级模型"></div>
+                <div class="form-row"><label>模型参数 (JSON)</label><textarea id="pmModelExt" placeholder='如 {"max_tokens": 65536, "temperature": 0.1}' style="min-height:38px;height:38px;resize:none;"></textarea></div>
+                <div class="form-row"><label>修改人</label><input type="text" id="pmUpdateBy" value="admin" placeholder="系统自动" readonly></div>
+            </div>
+            <!-- 两栏横排：提示词内容 | 修改前内容 -->
+            <div class="form-row-split">
+                <div class="form-row split-left">
+                    <label>提示词内容 <span class="req">*</span></label>
+                    <div class="rte-wrap" id="pmContentWrap">
+                        <div class="rte-toolbar" id="pmContentToolbar">
+                            <button type="button" class="rte-btn" title="加粗" onclick="rteCmd('bold')"><b>B</b></button>
+                            <button type="button" class="rte-btn" title="斜体" onclick="rteCmd('italic')"><i>I</i></button>
+                            <button type="button" class="rte-btn" title="下划线" onclick="rteCmd('underline')"><u>U</u></button>
+                            <button type="button" class="rte-btn" title="删除线" onclick="rteCmd('strikeThrough')"><s>S</s></button>
+                            <span class="rte-sep"></span>
+                            <button type="button" class="rte-btn" title="一级标题" onclick="rteCmd('formatBlock','<h1>')">H1</button>
+                            <button type="button" class="rte-btn" title="二级标题" onclick="rteCmd('formatBlock','<h2>')">H2</button>
+                            <button type="button" class="rte-btn" title="正文段落" onclick="rteCmd('formatBlock','<p>')">P</button>
+                            <span class="rte-sep"></span>
+                            <button type="button" class="rte-btn" title="无序列表" onclick="rteCmd('insertUnorderedList')">• 列表</button>
+                            <button type="button" class="rte-btn" title="有序列表" onclick="rteCmd('insertOrderedList')">1. 列表</button>
+                            <span class="rte-sep"></span>
+                            <input type="text" class="rte-var-input" id="pmVarInput" placeholder="变量名" onkeydown="if(event.key==='Enter'){event.preventDefault();rteInsertVar();}">
+                            <button type="button" class="rte-btn" title="在光标处插入 {变量} 占位符" onclick="rteInsertVar()">插入变量</button>
+                            <span class="rte-sep"></span>
+                            <button type="button" class="rte-btn" title="清除格式" onclick="rteCmd('removeFormat')">清除格式</button>
+                            <button type="button" class="rte-btn" title="撤销" onclick="rteCmd('undo')">撤销</button>
+                            <button type="button" class="rte-btn" title="重做" onclick="rteCmd('redo')">重做</button>
+                        </div>
+                        <div id="pmContent" class="rte-editor" contenteditable="true"
+                             data-placeholder="请输入提示词内容，支持 {变量} 占位符，可使用上方工具栏排版"></div>
+                    </div>
+                </div>
+                <div class="form-row split-right" id="pmBeforeModifyRow">
+                    <label>修改前内容（只读）</label>
+                    <div class="rte-wrap rte-readonly" id="pmBeforeModifyWrap">
+                        <div class="rte-toolbar" style="pointer-events:none;opacity:.5">
+                            <button type="button" class="rte-btn" title="加粗"><b>B</b></button>
+                            <button type="button" class="rte-btn" title="斜体"><i>I</i></button>
+                            <button type="button" class="rte-btn" title="下划线"><u>U</u></button>
+                            <button type="button" class="rte-btn" title="删除线"><s>S</s></button>
+                            <span class="rte-sep"></span>
+                            <button type="button" class="rte-btn" title="一级标题">H1</button>
+                            <button type="button" class="rte-btn" title="二级标题">H2</button>
+                            <button type="button" class="rte-btn" title="正文段落">P</button>
+                            <span class="rte-sep"></span>
+                            <button type="button" class="rte-btn" title="无序列表">• 列表</button>
+                            <button type="button" class="rte-btn" title="有序列表">1. 列表</button>
+                            <span class="rte-sep"></span>
+                            <input type="text" class="rte-var-input" placeholder="变量名">
+                            <button type="button" class="rte-btn" title="插入 {变量} 占位符">插入变量</button>
+                            <span class="rte-sep"></span>
+                            <button type="button" class="rte-btn" title="清除格式">清除格式</button>
+                            <button type="button" class="rte-btn" title="撤销">撤销</button>
+                            <button type="button" class="rte-btn" title="重做">重做</button>
+                        </div>
+                        <div class="rte-editor" id="pmBeforeModifyContent" contenteditable="false"
+                             data-placeholder="暂无修改前内容"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <span class="spacer" id="pmHint"></span>
+            <button class="btn btn-default" onclick="closePromptModal()">取消</button>
+            <button class="btn btn-primary" id="pmSaveDraft" onclick="submitDraft()">暂存</button>
+            <button class="btn btn-success" id="pmPublish" onclick="submitPublish()" style="display:none">发布</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+// ========== 富文本编辑器 ==========
+function rteCmd(cmd, val) {
+    document.getElementById('pmContent').focus();
+    document.execCommand(cmd, false, val || null);
+}
+function rteInsertVar() {
+    const input = document.getElementById('pmVarInput');
+    let name = input.value.trim();
+    if (!name) { alert('请输入变量名'); input.focus(); return; }
+    if (!/^[a-zA-Z_]\w*$/.test(name)) { alert('变量名需以字母/下划线开头，仅含字母数字下划线'); input.focus(); return; }
+    rteCmd('insertText', '{' + name + '}');
+    input.value = '';
+}
+function setPromptContent(val) {
+    const editor = document.getElementById('pmContent');
+    const v = val || '';
+    const hasHtml = /<\/?[a-zA-Z][^>]*>/.test(v);
+    editor.innerHTML = hasHtml ? v : escapeHtml(v).replace(/\r?\n/g, '<br>');
+}
+function getPromptContent() {
+    return document.getElementById('pmContent').innerHTML;
+}
+function setBeforeModifyContent(val) {
+    const editor = document.getElementById('pmBeforeModifyContent');
+    const v = val || '';
+    if (!v) { editor.innerHTML = ''; return; }
+    const hasHtml = /<\/?[a-zA-Z][^>]*>/.test(v);
+    editor.innerHTML = hasHtml ? v : escapeHtml(v).replace(/\r?\n/g, '<br>');
+}
+function setPromptEditable(editable) {
+    const editor = document.getElementById('pmContent');
+    const toolbar = document.getElementById('pmContentToolbar');
+    editor.contentEditable = editable ? 'true' : 'false';
+    toolbar.style.opacity = editable ? '1' : '.5';
+    toolbar.style.pointerEvents = editable ? 'auto' : 'none';
+}
+
+let g_page = 1;
+let g_pageSize = 10;
+let g_total = 0;
+let g_rows = [];
+const g_expanded = {}; // key=node_id -> true/false; 首次加载后自动展开
+
+let _firstLoadDone = false; // 首次加载标记
+
+async function loadList(page) {
+    if (page) g_page = page;
+    const area = document.getElementById('listArea');
+    area.innerHTML = '<div class="loading">加载中...</div>';
+    try {
+        const qs = new URLSearchParams();
+        const nodeId = document.getElementById('fNodeId').value.trim();
+        const nodeName = document.getElementById('fNodeName').value.trim();
+        const promptKey = document.getElementById('fPromptKey').value.trim();
+        const status = document.getElementById('fStatus').value;
+        if (nodeId) qs.set('node_id', nodeId);
+        if (nodeName) qs.set('node_name', nodeName);
+        if (promptKey) qs.set('prompt_key', promptKey);
+        if (status !== '') qs.set('status', status);
+        qs.set('page', g_page);
+        qs.set('page_size', g_pageSize);
+        const res = await fetch('/api/node-configs?' + qs.toString());
+        const json = await res.json();
+        if (json.code !== 0) { area.innerHTML = '<div class="empty">加载失败：' + escapeHtml(json.message) + '</div>'; return; }
+        g_rows = json.data || [];
+        g_total = json.total || 0;
+
+        // 首次加载时自动展开所有节点
+        if (!_firstLoadDone) {
+            _firstLoadDone = true;
+            g_rows.forEach(n => { g_expanded[n.node_id] = true; });
+        }
+
+        if (g_rows.length === 0) {
+            area.innerHTML = '<div class="empty">暂无数据</div>';
+            return;
+        }
+
+        let html = `<div class="table-wrap"><table><thead><tr>
+            <th style="width:50px">主键</th><th style="width:150px">节点ID</th><th style="width:120px">节点名称</th>
+            <th style="width:220px">提示词Key</th><th style="width:180px">提示词内容</th>
+            <th style="width:160px">模型ID</th><th style="width:180px">模型参数</th>
+            <th style="width:80px">状态</th><th style="width:80px">修改人</th>
+            <th style="width:140px">更新时间</th>
+            <th style="width:160px;text-align:center">操作</th>
+        </tr></thead><tbody>`;
+
+        g_rows.forEach((node) => {
+            const nodeId = escapeHtml(node.node_id);
+            const nodeName = escapeHtml(node.node_name || '-');
+            const isExpanded = !!g_expanded[node.node_id];
+
+            // ---- 父行（节点） ----
+            html += `<tr class="parent-row" data-parent="${nodeId}">
+                <td><span class="tree-toggle" onclick="toggleNode('${node.node_id}')" title="${isExpanded ? '收起' : '展开'}">${isExpanded ? '▼' : '▶'}</span></td>
+                <td><strong>${nodeId}</strong></td>
+                <td>${nodeName}</td>
+                <td colspan="7"></td>
+                <td style="text-align:center">
+                    <a class="btn-link" href="javascript:void(0)" onclick="openNewPrompt('${encodeURIComponent(node.node_id)}','${encodeURIComponent(node.node_name||'')}')">新增提示词</a>
+                </td>
+            </tr>`;
+
+            // ---- 子行（提示词版本） ----
+            if (isExpanded && node._children && node._children.length > 0) {
+                node._children.forEach(child => {
+                    const isPublished = child.status === 1;
+                    let ops = '';
+                    if (isPublished) {
+                        ops = `<a class="btn-link" href="javascript:void(0)" onclick="openEditPrompt(${child.id}, true)">编辑</a>`
+                            + `<a class="btn-link" href="javascript:void(0)" onclick="openViewPrompt(${child.id})">查看</a>`;
+                    } else {
+                        ops = `<a class="btn-link" href="javascript:void(0)" onclick="openEditPrompt(${child.id}, false)">编辑</a>`
+                            + `<a class="btn-link" href="javascript:void(0)" onclick="openViewPrompt(${child.id})">查看</a>`
+                            + `<a class="btn-link" style="color:#52c41a" href="javascript:void(0)" onclick="directPublish(${child.id})">发布</a>`;
+                    }
+                    const modelIdText = child.model_id != null && child.model_id !== '' ? escapeHtml(String(child.model_id)) : '-';
+                    let modelExtRaw = child.model_ext_param;
+                    let modelExtStr = (modelExtRaw && typeof modelExtRaw === 'string') ? modelExtRaw : (modelExtRaw ? JSON.stringify(modelExtRaw) : '');
+                    const modelExtCell = modelExtStr
+                        ? `<span class="ellipsis" style="max-width:180px" title="${escapeHtml(modelExtStr)}">${escapeHtml(modelExtStr.slice(0, 40))}</span>`
+                        : '<span class="text-muted">-</span>';
+                    const rawContent = child.prompt_content || '';
+                    const hasHtml = /<\/?[a-zA-Z][^>]*>/.test(rawContent);
+                    const plainText = hasHtml ? rawContent.replace(/<[^>]*>/g, '') : rawContent;
+                    const contentPreview = escapeHtml(plainText.slice(0, 14)) + (plainText.length > 14 ? '...' : '');
+                    const contentB64 = btoa(unescape(encodeURIComponent(rawContent)));
+                    html += `<tr class="child-row" data-child-of="${nodeId}">
+                        <td class="text-muted">${child.id || '-'}</td>
+                        <td class="text-muted">—</td>
+                        <td class="text-muted">—</td>
+                        <td><code style="white-space:nowrap">${escapeHtml(child.prompt_key || '-')}</code></td>
+                        <td class="content-cell" onmouseenter="showContentPopover(event, this)" onmouseleave="hideContentPopover()" data-b64="${contentB64}">${contentPreview || '<span class="text-muted">-</span>'}</td>
+                        <td class="text-muted">${modelIdText}</td>
+                        <td>${modelExtCell}</td>
+                        <td>${isPublished ? '<span class="tag tag-on">发布</span>' : '<span class="tag tag-off">暂存</span>'}</td>
+                        <td class="text-muted">${escapeHtml(child.update_by || '-')}</td>
+                        <td class="text-muted">${fmtDate(child.updated_at)}</td>
+                        <td style="text-align:center">${ops}</td>
+                    </tr>`;
+                });
+            } else if (isExpanded) {
+                html += `<tr class="child-row" data-child-of="${nodeId}"><td colspan="11" style="color:#bbb;">暂无提示词配置</td></tr>`;
+            }
+        });
+
+        html += `</tbody></table></div>`;
+        html += renderPager();
+        area.innerHTML = html;
+    } catch (e) {
+        area.innerHTML = '<div class="empty">加载失败：' + escapeHtml(String(e)) + '</div>';
+    }
+}
+
+function resetFilters() {
+    document.getElementById('fNodeId').value = '';
+    document.getElementById('fNodeName').value = '';
+    document.getElementById('fPromptKey').value = '';
+    document.getElementById('fStatus').value = '';
+    loadList(1);
+}
+
+// ========== 展开 / 收折 ==========
+function toggleNode(nodeId) {
+    g_expanded[nodeId] = !g_expanded[nodeId];
+    loadList(g_page);
+}
+
+// ========== 分页 ==========
+function renderPager() {
+    const totalPages = Math.max(1, Math.ceil(g_total / g_pageSize));
+    const cur = Math.min(g_page, totalPages);
+
+    let pagesHtml = '';
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === cur) {
+            pagesHtml += `<button class="btn btn-primary btn-sm" disabled style="min-width:32px">${i}</button>`;
+        } else {
+            pagesHtml += `<button class="btn btn-default btn-sm" onclick="gotoPage(${i})" style="min-width:32px">${i}</button>`;
+        }
+    }
+
+    return `<div class="pager">
+        <span class="pager-info">共 ${g_total} 个节点</span>
+        <select onchange="changePageSize(parseInt(this.value,10))">
+            <option value="10" ${g_pageSize===10?'selected':''}>10条/页</option>
+            <option value="20" ${g_pageSize===20?'selected':''}>20条/页</option>
+            <option value="30" ${g_pageSize===30?'selected':''}>30条/页</option>
+            <option value="50" ${g_pageSize===50?'selected':''}>50条/页</option>
+            <option value="100" ${g_pageSize===100?'selected':''}>100条/页</option>
+        </select>
+        <button class="btn btn-default btn-sm" onclick="gotoPage(${cur-1})" ${cur<=1?'disabled':''}>上一页</button>
+        ${pagesHtml}
+        <button class="btn btn-default btn-sm" onclick="gotoPage(${cur+1})" ${cur>=totalPages?'disabled':''}>下一页</button>
+        <span style="margin-left:8px">前往</span>
+        <input type="number" id="gotoInput" min="1" max="${totalPages}" value="${cur}" style="width:56px;height:28px;border:1px solid #d9d9d9;border-radius:6px;padding:0 6px;font-size:13px">
+        <span>页</span>
+        <button class="btn btn-default btn-sm" onclick="gotoInputPage()">确定</button>
+    </div>`;
+}
+
+function gotoInputPage() {
+    const input = document.getElementById('gotoInput');
+    if (!input) return;
+    gotoPage(parseInt(input.value, 10));
+}
+
+function gotoPage(p) {
+    const totalPages = Math.max(1, Math.ceil(g_total / g_pageSize));
+    p = Math.max(1, Math.min(p, totalPages));
+    loadList(p);
+}
+
+function changePageSize(v) {
+    g_pageSize = v; g_page = 1; loadList(1);
+}
+
+// ========== 弹窗：新增提示词 ==========
+function openNewPrompt(nodeIdEnc, nodeNameEnc) {
+    const node_id = decodeURIComponent(nodeIdEnc);
+    const node_name = decodeURIComponent(nodeNameEnc);
+    document.getElementById('pmMode').value = 'new';
+    document.getElementById('pmRecordId').value = '';
+    document.getElementById('pmStatus').value = '';
+    document.getElementById('pmTitle').textContent = '新增提示词（' + node_id + '）';
+    document.getElementById('pmNodeId').value = node_id;
+    document.getElementById('pmNodeName').value = node_name;
+    document.getElementById('pmPromptKey').value = '';
+    document.getElementById('pmPromptKey').readOnly = false;
+    setPromptContent('');
+    setPromptEditable(true);
+    document.getElementById('pmModelId').value = '';
+    document.getElementById('pmModelExt').value = '';
+    document.getElementById('pmUpdateBy').value = 'admin';
+    document.getElementById('pmHint').textContent = '新增将创建 version_no=1 的暂存记录';
+    document.getElementById('pmSaveDraft').style.display = '';
+    document.getElementById('pmSaveDraft').textContent = '暂存';
+    document.getElementById('pmPublish').style.display = 'none';
+    document.getElementById('pmNodeSelectRow').style.display = 'none';
+    document.getElementById('pmNodeId').style.display = '';
+    document.getElementById('pmNodeName').style.display = '';
+    document.getElementById('promptModal').classList.add('show');
+}
+
+async function openTopNewPrompt() {
+    const select = document.getElementById('pmNodeSelect');
+    select.innerHTML = '<option value="">请选择节点</option>';
+    try {
+        const res = await fetch('/api/nodes');
+        const json = await res.json();
+        if (json.code === 0 && json.data) {
+            json.data.forEach(n => {
+                const option = document.createElement('option');
+                option.value = n.node_id;
+                option.textContent = `${n.node_id} - ${n.node_name || ''}`;
+                option.dataset.nodeName = n.node_name || '';
+                select.appendChild(option);
+            });
+        }
+    } catch (e) {
+        console.error('加载节点列表失败', e);
+    }
+    document.getElementById('pmMode').value = 'new';
+    document.getElementById('pmRecordId').value = '';
+    document.getElementById('pmStatus').value = '';
+    document.getElementById('pmTitle').textContent = '新增提示词';
+    document.getElementById('pmNodeId').value = '';
+    document.getElementById('pmNodeName').value = '';
+    document.getElementById('pmPromptKey').value = '';
+    document.getElementById('pmPromptKey').readOnly = false;
+    setPromptContent('');
+    setPromptEditable(true);
+    document.getElementById('pmModelId').value = '';
+    document.getElementById('pmModelExt').value = '';
+    document.getElementById('pmUpdateBy').value = 'admin';
+    document.getElementById('pmHint').textContent = '请选择节点并新增提示词';
+    document.getElementById('pmSaveDraft').style.display = '';
+    document.getElementById('pmSaveDraft').textContent = '暂存';
+    document.getElementById('pmPublish').style.display = 'none';
+    document.getElementById('pmNodeSelectRow').style.display = '';
+    document.getElementById('pmNodeId').style.display = 'none';
+    document.getElementById('pmNodeName').style.display = 'none';
+    document.getElementById('promptModal').classList.add('show');
+}
+
+function onNodeSelectChange() {
+    const select = document.getElementById('pmNodeSelect');
+    const option = select.options[select.selectedIndex];
+    document.getElementById('pmNodeId').value = select.value;
+    document.getElementById('pmNodeName').value = option.dataset.nodeName || '';
+}
+
+// ========== 弹窗：编辑提示词（从列表已加载数据 prefill） ==========
+function _findChild(recordId) {
+    for (const node of g_rows) {
+        if (node._children) {
+            const c = node._children.find(x => x.id === recordId);
+            if (c) return { child: c, node };
+        }
+    }
+    return null;
+}
+
+function _fillModal(child, node, mode) {
+    document.getElementById('pmMode').value = mode;
+    document.getElementById('pmRecordId').value = child.id;
+    document.getElementById('pmStatus').value = child.status;
+    document.getElementById('pmTitle').textContent = (mode === 'view' ? '查看提示词' : '编辑提示词') + '（' + node.node_id + '）';
+    document.getElementById('pmNodeId').value = node.node_id;
+    document.getElementById('pmNodeName').value = node.node_name || '';
+    document.getElementById('pmPromptKey').value = child.prompt_key || '';
+    document.getElementById('pmPromptKey').readOnly = true;
+    setPromptContent(child.prompt_content || '');
+    setPromptEditable(mode !== 'view');
+    setBeforeModifyContent(child.prompt_content_before_modify || '');
+    document.getElementById('pmModelId').value = child.model_id || '';
+    document.getElementById('pmModelExt').value = (child.model_ext_param && typeof child.model_ext_param === 'string')
+        ? child.model_ext_param : (child.model_ext_param ? JSON.stringify(child.model_ext_param) : '');
+    document.getElementById('pmUpdateBy').value = child.update_by || 'admin';
+    const _viewOnly = (mode === 'view');
+    document.getElementById('pmModelId').readOnly = _viewOnly;
+    document.getElementById('pmModelExt').readOnly = _viewOnly;
+    document.getElementById('pmNodeSelectRow').style.display = 'none';
+    document.getElementById('pmNodeId').style.display = '';
+    document.getElementById('pmNodeName').style.display = '';
+}
+
+function openEditPrompt(recordId, isPublished) {
+    const found = _findChild(recordId);
+    if (!found) { alert('未找到该记录，请刷新列表'); return; }
+    const { child, node } = found;
+    _fillModal(child, node, 'edit');
+    document.getElementById('pmHint').textContent = isPublished
+        ? '编辑发布记录将另存为新的暂存版本（版本号+1）'
+        : '编辑暂存记录将原地保存（版本号不变）';
+    document.getElementById('pmSaveDraft').style.display = '';
+    document.getElementById('pmSaveDraft').textContent = '暂存';
+    // 编辑暂存记录才显示“发布”；编辑发布记录不可直接发布（前端拦截）
+    document.getElementById('pmPublish').style.display = isPublished ? 'none' : '';
+    document.getElementById('promptModal').classList.add('show');
+}
+
+function openViewPrompt(recordId) {
+    const found = _findChild(recordId);
+    if (!found) { alert('未找到该记录，请刷新列表'); return; }
+    const { child, node } = found;
+    _fillModal(child, node, 'view');
+    document.getElementById('pmPromptKey').readOnly = true;
+    document.getElementById('pmHint').textContent = '只读查看';
+    document.getElementById('pmSaveDraft').style.display = 'none';
+    document.getElementById('pmPublish').style.display = 'none';
+    document.getElementById('promptModal').classList.add('show');
+}
+
+// ========== 弹窗：发布提示词 ==========
+function openPublishPrompt(recordId) {
+    const found = _findChild(recordId);
+    if (!found) { alert('未找到该记录，请刷新列表'); return; }
+    const { child, node } = found;
+    if (child.status === 1) { alert('该记录已是发布状态，无法重复发布。请先编辑并暂存新版本后再发布。'); return; }
+    _fillModal(child, node, 'publish');
+    document.getElementById('pmHint').textContent = '发布后将同步生效表 zb_node_prompt，并自动刷新缓存';
+    document.getElementById('pmSaveDraft').style.display = 'none';
+    document.getElementById('pmPublish').style.display = '';
+    document.getElementById('promptModal').classList.add('show');
+}
+
+// ========== 一键发布（列表操作列直接发布） ==========
+async function directPublish(recordId) {
+    const found = _findChild(recordId);
+    if (!found) { alert('未找到该记录，请刷新列表'); return; }
+    const { child, node } = found;
+    if (child.status === 1) { alert('该记录已是发布状态，无法重复发布。'); return; }
+    if (!confirm('确认发布【' + node.node_id + '】的 「' + (child.prompt_key || '') + '」 吗？\n发布后将同步生效表并刷新缓存。')) return;
+
+    try {
+        const res = await fetch('/api/node-prompts/' + recordId + '/publish', {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                node_id: node.node_id,
+                node_name: node.node_name,
+                prompt_key: child.prompt_key || '',
+                prompt_content: child.prompt_content || '',
+                model_id: child.model_id || null,
+                model_ext_param: child.model_ext_param || null,
+                update_by: child.update_by || 'admin'
+            })
+        });
+        const json = await res.json();
+        if (json.code !== 0) { alert('发布失败：' + json.message); return; }
+        alert('发布成功，已同步生效表');
+        g_expanded[node.node_id] = true;
+        loadList(g_page);
+    } catch (e) {
+        alert('发布失败：' + e);
+    }
+}
+
+function closePromptModal() {
+    document.getElementById('promptModal').classList.remove('show');
+}
+
+// ========== 提交：暂存 ==========
+async function submitDraft() {
+    const mode = document.getElementById('pmMode').value;
+    const node_id = document.getElementById('pmNodeId').value;
+    const node_name = document.getElementById('pmNodeName').value;
+    const prompt_key = document.getElementById('pmPromptKey').value.trim();
+    const prompt_content = getPromptContent();
+    const update_by = document.getElementById('pmUpdateBy').value.trim() || 'admin';
+    const model_id = document.getElementById('pmModelId').value.trim();
+    let model_ext_param = document.getElementById('pmModelExt').value.trim();
+    if (model_ext_param) {
+        try { JSON.parse(model_ext_param); } catch (e) { alert('模型参数不是合法 JSON：' + e); return; }
+    } else {
+        model_ext_param = null;
+    }
+
+    if (!node_id) { alert('请选择节点'); return; }
+    if (!prompt_key) { alert('请填写提示词Key'); return; }
+    if (!prompt_content.trim()) { alert('请填写提示词内容'); return; }
+
+    const btn = document.getElementById('pmSaveDraft');
+    btn.disabled = true;
+    try {
+        let res, json;
+        if (mode === 'new') {
+            res = await fetch('/api/node-prompts', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ node_id, node_name, prompt_key, prompt_content, model_id, model_ext_param, update_by })
+            });
+        } else {
+            const recordId = document.getElementById('pmRecordId').value;
+            res = await fetch('/api/node-prompts/' + recordId + '/save-draft', {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ node_id, node_name, prompt_key, prompt_content, model_id, model_ext_param, update_by })
+            });
+        }
+        json = await res.json();
+        if (json.code !== 0) { alert('暂存失败：' + json.message); return; }
+        alert('暂存成功');
+        closePromptModal();
+        g_expanded[node_id] = true;
+        loadList(g_page);
+    } catch (e) {
+        alert('暂存失败：' + e);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ========== 提交：发布 ==========
+async function submitPublish() {
+    const recordId = document.getElementById('pmRecordId').value;
+    const node_id = document.getElementById('pmNodeId').value;
+    const node_name = document.getElementById('pmNodeName').value;
+    const prompt_key = document.getElementById('pmPromptKey').value.trim();
+    const prompt_content = getPromptContent();
+    const update_by = document.getElementById('pmUpdateBy').value.trim() || 'admin';
+    const model_id = document.getElementById('pmModelId').value.trim();
+    let model_ext_param = document.getElementById('pmModelExt').value.trim();
+    if (model_ext_param) {
+        try { JSON.parse(model_ext_param); } catch (e) { alert('模型参数不是合法 JSON：' + e); return; }
+    } else {
+        model_ext_param = null;
+    }
+
+    if (!node_id) { alert('请选择节点'); return; }
+    if (!prompt_content.trim()) { alert('请填写提示词内容'); return; }
+
+    const btn = document.getElementById('pmPublish');
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/node-prompts/' + recordId + '/publish', {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ node_id, node_name, prompt_key, prompt_content, model_id, model_ext_param, update_by })
+        });
+        const json = await res.json();
+        if (json.code !== 0) { alert('发布失败：' + json.message); return; }
+        alert('发布成功，已同步生效表');
+        closePromptModal();
+        g_expanded[node_id] = true;
+        loadList(g_page);
+    } catch (e) {
+        alert('发布失败：' + e);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ========== 工具函数 ==========
+function fmtDate(d) {
+    if (!d) return '-';
+    const s = typeof d === 'string' ? d : d.toISOString();
+    if (s.includes('T')) return s.replace('T', ' ').slice(0, 19);
+    return s.slice(0, 19);
+}
+
+// 初始加载
+loadList(1);
+
+// ========== 提示词内容浮层 ==========
+function showContentPopover(e, td) {
+    let pop = document.getElementById('contentPopover');
+    if (!pop) {
+        pop = document.createElement('div');
+        pop.id = 'contentPopover';
+        pop.className = 'content-popover';
+        document.body.appendChild(pop);
+    }
+    const b64 = td.getAttribute('data-b64');
+    if (!b64) return;
+    const raw = decodeURIComponent(escape(atob(b64)));
+    const hasHtml = /<\/?[a-zA-Z][^>]*>/.test(raw);
+    pop.innerHTML = hasHtml ? raw : escapeHtml(raw).replace(/\r?\n/g, '<br>');
+    pop.style.display = 'block';
+    const rect = td.getBoundingClientRect();
+    let left = rect.right + 8;
+    let top = rect.top;
+    if (left + 640 > window.innerWidth) { left = Math.max(8, rect.left - 648); }
+    if (top + 420 > window.innerHeight) { top = Math.max(8, window.innerHeight - 430); }
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+}
+function hideContentPopover() {
+    const pop = document.getElementById('contentPopover');
+    if (pop) pop.style.display = 'none';
+}
+</script>
+</body>
+</html>
