@@ -214,6 +214,12 @@ async def update_conversation_node(node_id: str, item: ConversationNodeItem):
         async with session:
             async with session.begin():
                 result = await session.execute(text(sql), params)
+                if result.rowcount > 0:
+                    # 同步更新 zb_node_prompt_ver_ctrl 中相同 node_id 记录的 node_name
+                    await session.execute(
+                        text("UPDATE zb_node_prompt_ver_ctrl SET node_name = :node_name WHERE node_id = :node_id"),
+                        {"node_name": item.node_name, "node_id": node_id},
+                    )
         if result.rowcount == 0:
             return {"code": -1, "message": "节点不存在"}
         try:
@@ -621,53 +627,53 @@ async def list_node_configs(
     try:
         session = await _get_session()
 
-        # 节点级过滤条件（节点列表以 zb_node_prompt_ver_ctrl 为数据源）
+        # 节点级过滤条件（父节点数据源为 zb_node_prompt_ver_ctrl，自带 node_id/node_name）
         node_where = ["1=1"]
         fparams = {}
         if node_id:
             node_where.append("v.node_id LIKE :node_id")
             fparams["node_id"] = f"%{node_id}%"
         if node_name:
-            node_where.append("cn.node_name LIKE :node_name")
+            node_where.append("v.node_name LIKE :node_name")
             fparams["node_name"] = f"%{node_name}%"
         if keyword:
-            node_where.append("(v.node_id LIKE :kw OR cn.node_name LIKE :kw)")
+            node_where.append("(v.node_id LIKE :kw OR v.node_name LIKE :kw)")
             fparams["kw"] = f"%{keyword}%"
-        node_filter_sql = " AND ".join(node_where)
 
-        # 子行级过滤条件
+        # 子行级过滤条件（作用于 zb_node_prompt_ver_ctrl 自身）
         child_filters = []
         child_params = {}
         if prompt_key:
-            child_filters.append("prompt_key LIKE :prompt_key")
+            child_filters.append("v.prompt_key LIKE :prompt_key")
             child_params["prompt_key"] = f"%{prompt_key}%"
         if status is not None:
-            child_filters.append("status = :status")
+            child_filters.append("v.status = :status")
             child_params["status"] = status
+        node_filter_sql = " AND ".join(node_where)
+        child_filter_sql = (" AND " + " AND ".join(child_filters)) if child_filters else ""
+        where_sql = f"{node_filter_sql} {child_filter_sql}"
 
         async with session:
             async with session.begin():
                 offset = (page - 1) * page_size
 
-                # 统一从 zb_node_prompt_ver_ctrl 取节点列表，LEFT JOIN zb_conversation_nodes 取节点元信息
-                child_filter_sql = (" AND " + " AND ".join(child_filters)) if child_filters else ""
+                # 父节点分页：以 zb_node_prompt_ver_ctrl 为数据源，按 node_id 去重分页
                 all_params = {**fparams, **child_params}
 
                 count_sql = f"""
                     SELECT COUNT(DISTINCT v.node_id) AS cnt
                     FROM zb_node_prompt_ver_ctrl v
-                    LEFT JOIN zb_conversation_nodes cn ON cn.node_id = v.node_id
-                    WHERE {node_filter_sql} {child_filter_sql}
+                    WHERE {where_sql}
                 """
                 count_row = (await session.execute(text(count_sql), all_params)).fetchone()
                 total = int(count_row[0]) if count_row else 0
 
                 node_id_list_sql = f"""
-                    SELECT DISTINCT v.node_id
+                    SELECT v.node_id
                     FROM zb_node_prompt_ver_ctrl v
-                    LEFT JOIN zb_conversation_nodes cn ON cn.node_id = v.node_id
-                    WHERE {node_filter_sql} {child_filter_sql}
-                    ORDER BY v.node_id
+                    WHERE {where_sql}
+                    GROUP BY v.node_id
+                    ORDER BY MAX(v.id) DESC
                     LIMIT {page_size} OFFSET {offset}
                 """
                 nids = [r[0] for r in (await session.execute(text(node_id_list_sql), all_params)).fetchall()]
@@ -679,26 +685,24 @@ async def list_node_configs(
                         "page": page, "page_size": page_size,
                     }
 
-                # 查询节点元信息（先 DISTINCT 取 node_id，再 LEFT JOIN 拿元信息）
+                # 一条 SQL 取当前页所有父节点的元信息（取每个 node_id 最新一条记录）
                 nid_placeholders = ",".join([f":nid{i}" for i in range(len(nids))])
                 nid_params = {f"nid{i}": nid for i, nid in enumerate(nids)}
-                node_rows = [dict(r._mapping) for r in (await session.execute(
+                _raw_node_rows = (await session.execute(
                     text(f"""
-                        SELECT cn.id, nd.node_id,
-                               COALESCE(cn.node_name, nd.node_name) AS node_name,
-                               cn.node_type, cn.node_business_range,
-                               cn.node_description, cn.status, cn.parent_node_id,
-                               cn.model_id, cn.created_at, cn.updated_at
-                        FROM (
-                            SELECT DISTINCT node_id, node_name
+                        SELECT id, node_id, node_name, status, model_id, created_at, updated_at
+                        FROM zb_node_prompt_ver_ctrl
+                        WHERE id IN (
+                            SELECT MAX(id)
                             FROM zb_node_prompt_ver_ctrl
                             WHERE node_id IN ({nid_placeholders})
-                        ) nd
-                        LEFT JOIN zb_conversation_nodes cn ON cn.node_id = nd.node_id
-                        ORDER BY nd.node_id DESC
-                    """),
-                    nid_params
-                )).fetchall()]
+                            GROUP BY node_id
+                        )
+                        ORDER BY id DESC
+                        """),
+                        nid_params
+                    )).fetchall()
+                node_rows = [dict(_nr._mapping) for _nr in _raw_node_rows]
 
                 # 查询这些节点下的子提示词
                 child_qparams = {f"nid{i}": nid for i, nid in enumerate(nids)}
